@@ -299,6 +299,28 @@ button{cursor:pointer;border:0;background:none}
 .cav{display:block;font-size:.7rem;color:var(--ink-faint);margin-top:.2rem;line-height:1.45}
 .feedback .wd{font-size:1.15rem}
 .feedback .rw{font-size:.72rem}
+/* ── 手寫辨識結果 ──────────────────────────────────────────────────── */
+.verdict{
+  border:1.5px solid var(--hair);border-radius:var(--r-sm);background:var(--card);
+  padding:.75rem .85rem;display:flex;flex-direction:column;gap:.55rem;
+}
+.verdict.ok{border-color:var(--matcha);background:var(--matcha-soft)}
+.verdict.meh{border-color:var(--ai);background:var(--ai-soft)}
+.verdict.no{border-color:var(--shu);background:var(--shu-soft)}
+.verdict .hd{font-size:.92rem;font-weight:650;display:flex;align-items:center;gap:.4rem}
+.verdict.ok .hd{color:var(--matcha)}
+.verdict.meh .hd{color:var(--ai)}
+.verdict.no .hd{color:var(--shu)}
+.verdict .hd .kana{font-family:var(--font-gothic);font-size:1.5rem;line-height:1}
+.verdict .why{font-size:.76rem;color:var(--ink-soft);line-height:1.5}
+.guesses{display:flex;flex-direction:column;gap:.3rem}
+.guess{display:flex;align-items:center;gap:.5rem;font-size:.72rem;color:var(--ink-soft)}
+.guess .g-k{font-family:var(--font-gothic);font-size:1.3rem;width:1.6rem;text-align:center;flex:none;color:var(--ink)}
+.guess .g-bar{flex:1;height:6px;border-radius:3px;background:var(--card-2);overflow:hidden}
+.guess .g-bar i{display:block;height:100%;background:var(--ink-faint)}
+.guess.is-target .g-bar i{background:var(--matcha)}
+.guess.is-target .g-k{color:var(--matcha);font-weight:600}
+.guess .g-pc{font-family:var(--font-mono);font-size:.66rem;width:2.4rem;text-align:right;flex:none;font-variant-numeric:tabular-nums}
 
 /* ── 手寫格 ─────────────────────────────────────────────────────────── */
 .pad-wrap{position:relative;width:100%;max-width:19rem;aspect-ratio:1;margin:0 auto}
@@ -643,8 +665,13 @@ footer button{font-size:.68rem;color:var(--shu);text-decoration:underline;text-u
   </div>
 
   <div class="grade" id="grade" hidden>
-    <button class="again" data-g="0">還不熟</button>
-    <button class="got" data-g="1">寫對了</button>
+    <button class="again" id="rewrite-btn">清空重寫</button>
+    <button class="got" id="check-btn">檢查我寫的 ✓</button>
+  </div>
+  <div class="verdict" id="verdict" hidden></div>
+  <div class="grade" id="grade2" hidden>
+    <button class="again" data-g="0">算我錯，下一題</button>
+    <button class="got" data-g="1">我確定我寫對了</button>
   </div>
 
   <div class="helprow" id="helprow" hidden>
@@ -1324,6 +1351,8 @@ function makePad(canvas, infoEl){
     clear(){ strokes = []; draw(); },
     peek(){ revealed = true; draw(); },
     redraw(){ sizeIt(); draw(); },
+    strokeCount(){ return strokes.length; },
+    ink(){ return {strokes:strokes, w:canvas.width, h:canvas.height}; },
   };
 }
 const learnPad = makePad($('#pad-learn'), $('#learn-strokes'));
@@ -1333,6 +1362,132 @@ $('#learn-clear').addEventListener('click', () => learnPad.clear());
 $('#undo-btn').addEventListener('click', () => drillPad.undo());
 $('#clear-btn').addEventListener('click', () => drillPad.clear());
 $('#peek-btn').addEventListener('click', () => drillPad.peek());
+
+/* ═══ 手寫辨識 ═════════════════════════════════════════════════════════
+   不用機器學習模型。範本字形本來就是用裝置的字型畫出來的，所以可以把
+   使用者的筆跡跟每一個候選假名的字形都比一次，看哪個最像 —— 這是最近鄰
+   分類，純數學，離線、瞬間、不用下載任何東西。
+
+   流程：筆跡和範本各自畫到畫布 → 抓出墨水的外框、等比例縮放置中 →
+   模糊化（讓細筆畫容許一點位置誤差）→ 算雙向覆蓋率的調和平均。          */
+const RN = 64;                 // 比對用的縮圖邊長
+const RS = 256;                // 繪製用的畫布邊長
+const TPL = {};                // 範本快取
+let _rc = {};
+
+function _cv(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function _ctx(key, size){
+  if (!_rc[key]) {
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    _rc[key] = {c, x:c.getContext('2d', {willReadFrequently:true})};
+  }
+  return _rc[key];
+}
+
+/* 抓出墨水外框，等比例縮放置中到 RN×RN，回傳 0..1 的灰階 */
+function normalize(src, size){
+  const sx = src.getContext('2d', {willReadFrequently:true});
+  const d = sx.getImageData(0, 0, size, size).data;
+  let minX = size, minY = size, maxX = -1, maxY = -1;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      if (d[(y * size + x) * 4 + 3] > 40) {
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX < 0) return null;
+  const bw = maxX - minX + 1, bh = maxY - minY + 1;
+  const pad = RN * 0.08, avail = RN - pad * 2;
+  const k = Math.min(avail / bw, avail / bh);   // 等比例，不然 し 會被拉成方的
+  const dw = bw * k, dh = bh * k;
+  const n = _ctx('nrm', RN);
+  n.x.clearRect(0, 0, RN, RN);
+  n.x.drawImage(src, minX, minY, bw, bh, (RN - dw) / 2, (RN - dh) / 2, dw, dh);
+  const nd = n.x.getImageData(0, 0, RN, RN).data;
+  const g = new Float32Array(RN * RN);
+  for (let i = 0; i < RN * RN; i++) g[i] = nd[i * 4 + 3] / 255;
+  return g;
+}
+
+function boxBlur(g, r){
+  const tmp = new Float32Array(RN * RN), out = new Float32Array(RN * RN);
+  for (let y = 0; y < RN; y++) for (let x = 0; x < RN; x++) {
+    let s = 0, n = 0;
+    for (let i = -r; i <= r; i++) { const xx = x + i; if (xx < 0 || xx >= RN) continue; s += g[y * RN + xx]; n++; }
+    tmp[y * RN + x] = s / n;
+  }
+  for (let x = 0; x < RN; x++) for (let y = 0; y < RN; y++) {
+    let s = 0, n = 0;
+    for (let i = -r; i <= r; i++) { const yy = y + i; if (yy < 0 || yy >= RN) continue; s += tmp[yy * RN + x]; n++; }
+    out[y * RN + x] = s / n;
+  }
+  let mx = 0;
+  for (let i = 0; i < out.length; i++) if (out[i] > mx) mx = out[i];
+  if (mx > 0) for (let i = 0; i < out.length; i++) out[i] /= mx;   // 正規化，模糊會壓低峰值
+  return out;
+}
+function prep(g){ return {g, b:boxBlur(boxBlur(g, 3), 3)}; }
+
+/* 雙向覆蓋率的調和平均：少寫筆畫和多寫筆畫都會被扣分 */
+function similarity(A, B){
+  let sa = 0, ca = 0, sb = 0, cb = 0;
+  for (let i = 0; i < A.g.length; i++) {
+    const a = A.g[i], b = B.g[i];
+    if (a > 0.15) { ca += a; sa += a * B.b[i]; }
+    if (b > 0.15) { cb += b; sb += b * A.b[i]; }
+  }
+  const covA = ca ? sa / ca : 0, covB = cb ? sb / cb : 0;
+  return (covA + covB) ? 2 * covA * covB / (covA + covB) : 0;
+}
+
+function templateOf(kana){
+  if (TPL[kana]) return TPL[kana];
+  const t = _ctx('tpl', RS);
+  t.x.clearRect(0, 0, RS, RS);
+  t.x.fillStyle = '#000';
+  t.x.font = (kana.length > 1 ? RS * 0.55 : RS * 0.78) + 'px ' + (_cv('--font-gothic') || 'sans-serif');
+  t.x.textAlign = 'center'; t.x.textBaseline = 'middle';
+  t.x.fillText(kana, RS / 2, RS / 2);
+  const g = normalize(t.c, RS);
+  return TPL[kana] = g ? prep(g) : null;
+}
+
+function inkOf(ink){
+  if (!ink || !ink.strokes.length) return null;
+  const t = _ctx('ink', RS);
+  t.x.clearRect(0, 0, RS, RS);
+  t.x.strokeStyle = '#000'; t.x.fillStyle = '#000';
+  t.x.lineCap = 'round'; t.x.lineJoin = 'round';
+  t.x.lineWidth = RS / 18;                       // 接近黑體的筆畫粗細
+  const k = RS / Math.max(ink.w, ink.h);
+  for (const st of ink.strokes) {
+    if (st.length === 1) { t.x.beginPath(); t.x.arc(st[0].x * k, st[0].y * k, RS / 36, 0, 7); t.x.fill(); continue; }
+    t.x.beginPath();
+    t.x.moveTo(st[0].x * k, st[0].y * k);
+    for (let i = 1; i < st.length; i++) t.x.lineTo(st[i].x * k, st[i].y * k);
+    t.x.stroke();
+  }
+  const g = normalize(t.c, RS);
+  return g ? prep(g) : null;
+}
+
+/* 回傳排名。候選只取同一種假名、同一組，因為那才是真正會搞混的範圍 */
+function recognize(ink, target){
+  const user = inkOf(ink);
+  if (!user) return null;
+  const cands = ITEMS.filter(i => i.script === target.script && i.set === target.set);
+  const ranked = [];
+  for (const c of cands) {
+    const t = templateOf(c.kana);
+    if (t) ranked.push({item:c, score:similarity(user, t)});
+  }
+  ranked.sort((a, b) => b.score - a.score);
+  const rank = ranked.findIndex(r => r.item.id === target.id);
+  return {ranked, rank, best:ranked[0], mine:ranked[rank]};
+}
 
 /* ═══ 首頁 ═════════════════════════════════════════════════════════════ */
 function renderHome(){
@@ -1726,6 +1881,8 @@ function nextQuestion(){
   $('#typerow').hidden = true; $('#typerow').style.display = 'none';
   $('#write-area').hidden = true;
   $('#grade').hidden = true;
+  $('#grade2').hidden = true;
+  $('#verdict').hidden = true;
   $('#helprow').hidden = true;
   $('#prompt-sub').textContent = '';
 
@@ -1815,6 +1972,7 @@ function answer(ok, chosenId){
     });
   }
   if (Q.current.kind === 'type') $('#type-input').disabled = true;
+  if (Q.current.kind === 'write') { $('#grade').hidden = true; $('#grade2').hidden = true; }
   $('#helprow').hidden = true;
 
   const fb = $('#feedback');
@@ -1858,10 +2016,80 @@ $('#type-input').addEventListener('keydown', e => {
   e.preventDefault();          // 否則 Enter 會順手按下剛取得焦點的「下一題」
   submitTyped();
 });
-$('#grade').addEventListener('click', e => {
+$('#grade2').addEventListener('click', e => {
   const b = e.target.closest('[data-g]'); if (!b || Q.answered) return;
   answer(b.dataset.g === '1', null);
 });
+$('#rewrite-btn').addEventListener('click', () => {
+  drillPad.clear();
+  $('#verdict').hidden = true;
+  $('#grade2').hidden = true;
+});
+
+/* 分數門檻是實測出來的：字型變形後正確書寫最低 0.50，
+   亂畫時目標字的分數中位數 0.28、最高 0.44。留一點餘裕給真實手寫。 */
+const OK_SCORE = 0.42, WEAK_SCORE = 0.28;
+
+function checkWriting(){
+  if (Q.answered) return;
+  const item = Q.current.item;
+  const ink = drillPad.ink();
+  const v = $('#verdict');
+  v.hidden = false;
+
+  if (!ink.strokes.length) {
+    v.className = 'verdict no';
+    v.innerHTML = '<span class="hd">格子還是空的</span>'
+      + '<span class="why">用手指在上面的方格裡寫一次，再按檢查。</span>';
+    return;
+  }
+  const r = recognize(ink, item);
+  if (!r) return;
+
+  const strokes = ink.strokes.length;
+  const wantStrokes = item.strokes;
+  const strokeNote = (wantStrokes && strokes !== wantStrokes)
+    ? '<span class="why">另外，你寫了 <b>' + strokes + '</b> 筆，這個字是 <b>' + wantStrokes
+      + '</b> 筆。筆數對不上通常代表筆順記錯了。</span>' : '';
+
+  const bars = r.ranked.slice(0, 3).map(x => {
+    const pc = Math.round(x.score * 100);
+    return '<div class="guess' + (x.item.id === item.id ? ' is-target' : '') + '">'
+      + '<span class="g-k" lang="ja">' + x.item.kana + '</span>'
+      + '<span class="g-bar"><i style="width:' + Math.max(4, pc) + '%"></i></span>'
+      + '<span class="g-pc">' + pc + '%</span></div>';
+  }).join('');
+  const guesses = '<div class="guesses">' + bars + '</div>';
+
+  const mine = r.mine.score;
+  if (r.rank === 0 && mine >= OK_SCORE) {
+    v.className = 'verdict ok';
+    v.innerHTML = '<span class="hd">✓ 寫對了 <span class="kana" lang="ja">' + item.kana + '</span></span>'
+      + strokeNote + guesses;
+    answer(true, null);
+  } else if (r.rank === 0 && mine >= WEAK_SCORE) {
+    v.className = 'verdict meh';
+    v.innerHTML = '<span class="hd">✓ 形狀是對的</span>'
+      + '<span class="why">認得出來是 <b lang="ja">' + item.kana + '</b>，不過寫得有點潦草，下次可以更工整。</span>'
+      + strokeNote + guesses;
+    answer(true, null);
+  } else if (r.rank === 0) {
+    v.className = 'verdict no';
+    v.innerHTML = '<span class="hd">看不太出來</span>'
+      + '<span class="why">筆畫太少或太散，認不出是哪個字。按「清空重寫」再試一次。</span>'
+      + strokeNote + guesses;
+    $('#grade2').hidden = false;
+  } else {
+    v.className = 'verdict no';
+    v.innerHTML = '<span class="hd">✗ 比較像 <span class="kana" lang="ja">' + r.best.item.kana + '</span>'
+      + '（' + esc(r.best.item.romaji) + '）</span>'
+      + '<span class="why">題目要的是 <b lang="ja">' + item.kana + '</b>（' + esc(item.romaji) + '）。'
+      + '按「對答案」可以把正確字形疊上去比對。</span>'
+      + strokeNote + guesses;
+    $('#grade2').hidden = false;
+  }
+}
+$('#check-btn').addEventListener('click', checkWriting);
 $('#next-btn').addEventListener('click', () => { Q.i++; nextQuestion(); });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
