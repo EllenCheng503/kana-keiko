@@ -127,6 +127,18 @@ button{cursor:pointer;border:0;background:none}
 
 /* ── 學習者 ─────────────────────────────────────────────────────────── */
 .idbar{display:flex;align-items:center;justify-content:space-between;gap:.75rem}
+.banner{
+  border:1.5px solid var(--ai);background:var(--ai-soft);border-radius:var(--r-sm);
+  padding:.65rem .8rem;font-size:.76rem;line-height:1.5;color:var(--ink-soft);
+  display:flex;flex-direction:column;gap:.45rem;align-items:flex-start;
+}
+.banner b{color:var(--ink);font-weight:650;display:block}
+.banner.warn{border-color:var(--shu);background:var(--shu-soft)}
+.banner.warn b{color:var(--shu)}
+.banner-act{
+  padding:.4rem .8rem;border-radius:999px;background:var(--ai);color:var(--paper);
+  font-size:.74rem;font-weight:600;align-self:stretch;text-align:center;
+}
 .who{
   display:inline-flex;align-items:center;gap:.5rem;padding:.3rem .7rem .3rem .3rem;
   border:1.5px solid var(--hair);border-radius:999px;background:var(--card);min-width:0;
@@ -218,21 +230,27 @@ button{cursor:pointer;border:0;background:none}
 .chapter-body{display:none;flex-direction:column;border-top:1.5px solid var(--hair)}
 .chapter.open .chapter-body{display:flex}
 
-.lesson{
-  display:flex;align-items:center;gap:.7rem;padding:.6rem .85rem;text-align:left;
-  border-bottom:1px solid var(--hair);
-}
+.lesson{display:flex;align-items:stretch;border-bottom:1px solid var(--hair)}
 .lesson:last-child{border-bottom:0}
-.lesson:hover{background:var(--card-2)}
+.lesson-main{
+  flex:1;min-width:0;display:flex;align-items:center;gap:.7rem;
+  padding:.6rem .85rem;text-align:left;
+}
+.lesson-main:hover{background:var(--card-2)}
+.lesson-quiz{
+  flex:none;padding:0 .85rem;font-size:.72rem;font-weight:600;color:var(--ai);
+  border-left:1px solid var(--hair);white-space:nowrap;
+}
+.lesson-quiz:hover{background:var(--ai-soft)}
 .lesson .dot{
   width:1.35rem;height:1.35rem;border-radius:50%;flex:none;display:grid;place-items:center;
   border:1.5px solid var(--rule-strong);font-size:.62rem;font-family:var(--font-mono);color:var(--ink-faint);
 }
 .lesson.done .dot{background:var(--matcha);border-color:var(--matcha);color:var(--paper)}
-.lesson.next .dot{border-color:var(--ai);color:var(--ai)}
+.lesson.is-next .dot{border-color:var(--ai);color:var(--ai)}
 .lesson .kanas{flex:1;font-family:var(--font-gothic);font-size:1.05rem;letter-spacing:.12em}
 .lesson .rom{font-family:var(--font-mono);font-size:.66rem;color:var(--ink-faint);letter-spacing:.05em}
-.lesson.next .kanas{color:var(--ai);font-weight:600}
+.lesson.is-next .kanas{color:var(--ai);font-weight:600}
 
 /* ── 學習卡 ─────────────────────────────────────────────────────────── */
 .learn-top{
@@ -530,6 +548,15 @@ footer button{font-size:.68rem;color:var(--shu);text-decoration:underline;text-u
       <span class="who-caret">切換 ▾</span>
     </button>
     <div class="streak">連續<b id="streak-n">0</b>天</div>
+  </div>
+
+  <div class="banner warn" id="storage-warn" hidden>
+    <b>這個瀏覽器不讓網頁儲存資料</b>
+    <span>可能是無痕模式，或瀏覽器擋掉了網站儲存。現在學的進度關掉分頁就會消失。</span>
+  </div>
+  <div class="banner" id="backup-hint" hidden>
+    <span id="backup-hint-text"></span>
+    <button class="banner-act" id="backup-now">匯出備份檔</button>
   </div>
 
   <button class="cta" id="continue-btn">開始第一課<span class="sub" id="continue-sub"></span></button>
@@ -1128,8 +1155,10 @@ const DECK_SIZE = {};
 DECKS.forEach(d => DECK_SIZE[d.id] = ITEMS.filter(i => i.deck === d.id).length);
 
 /* ═══ 儲存與間隔複習 ═══════════════════════════════════════════════════ */
-const KEY = 'kana-keiko-v3';
-const OLD_KEY = 'kana-keiko-v2';
+/* 主鍵不再帶版號 —— 之前每次改版都換鍵，那正是進度會不見的原因。
+   這個鍵從此固定，載入時還會掃描所有舊鍵把資料撈回來。 */
+const KEY = 'kana-keiko';
+const LEGACY_KEYS = ['kana-keiko-v3', 'kana-keiko-v2', 'kana-keiko-v1'];
 const MIN = 60000, DAY = 86400000;
 const INTERVALS = [MIN, 10*MIN, DAY, 2*DAY, 5*DAY, 12*DAY, 30*DAY];
 const MAXLVL = INTERVALS.length - 1;
@@ -1155,27 +1184,59 @@ function freshStore(){
   st.profiles[id] = newProfile('我');
   return st;
 }
+/* 把任何一種格式（新的多人、舊的單人）都轉成現在的結構 */
+function asStore(raw){
+  if (!raw || typeof raw !== 'object') return null;
+  if (raw.profiles && raw.active && raw.profiles[raw.active]) {
+    for (const id in raw.profiles) {
+      raw.profiles[id].data = Object.assign({}, DEFAULT_STATE, raw.profiles[id].data || {});
+    }
+    return raw;
+  }
+  if (raw.cards) {                       // 舊的單人格式
+    const st = freshStore();
+    st.profiles[st.active].data = Object.assign({}, DEFAULT_STATE, raw);
+    return st;
+  }
+  return null;
+}
+function storeSize(st){
+  let n = 0;
+  for (const id in st.profiles) n += Object.keys(st.profiles[id].data.cards || {}).length;
+  return n;
+}
+/* 掃過主鍵和所有舊鍵，挑學過最多字的那份。
+   寧可多撈也不要漏掉 —— 弄丟進度比多讀幾個鍵嚴重太多。 */
 function loadStore(){
+  const keys = [KEY].concat(LEGACY_KEYS);
   try {
-    const raw = JSON.parse(localStorage.getItem(KEY));
-    if (raw && raw.profiles && raw.active && raw.profiles[raw.active]) {
-      for (const id in raw.profiles) {
-        raw.profiles[id].data = Object.assign({}, DEFAULT_STATE, raw.profiles[id].data || {});
-      }
-      return raw;
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf('kana-keiko') === 0 && keys.indexOf(k) < 0) keys.push(k);
     }
   } catch(e){}
-  try {   // 從舊版的單人資料升級，進度不會掉
-    const old = JSON.parse(localStorage.getItem(OLD_KEY));
-    if (old && typeof old === 'object' && old.cards) {
-      const st = freshStore();
-      st.profiles[st.active].data = Object.assign({}, DEFAULT_STATE, old);
-      return st;
-    }
-  } catch(e){}
-  return freshStore();
+  const found = [];
+  for (const k of keys) {
+    try {
+      const st = asStore(JSON.parse(localStorage.getItem(k)));
+      if (st) found.push({k, st, n:storeSize(st)});
+    } catch(e){}
+  }
+  if (!found.length) return freshStore();
+  found.sort((a, b) => (b.n - a.n) || (a.k === KEY ? -1 : 1));
+  return found[0].st;
 }
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(STORE)); } catch(e){} }
+
+/* 這個瀏覽器到底存不存得住東西？無痕模式、擋 cookie 都會讓它失敗 */
+const STORAGE_OK = (function(){
+  try {
+    localStorage.setItem('kana-keiko-probe', '1');
+    const ok = localStorage.getItem('kana-keiko-probe') === '1';
+    localStorage.removeItem('kana-keiko-probe');
+    return ok;
+  } catch(e){ return false; }
+})();
 function useProfile(id){
   if (!STORE.profiles[id]) return;
   STORE.active = id;
@@ -1503,9 +1564,24 @@ function renderHome(){
     cb.innerHTML = '全部課程都學完了<span class="sub">用下面的複習和自由練習保持手感</span>';
     cb.disabled = true;
   }
+  const learned = learnedItems();
   const rb = $('#review-btn');
-  rb.hidden = due === 0;
-  rb.innerHTML = '今日複習<span class="sub">' + due + ' 個字到期了</span>';
+  rb.hidden = learned.length === 0;
+  const weakest = learned.map(i => ({i, w:weakness(i)})).sort((a, b) => b.w - a.w)
+    .slice(0, 4).map(x => x.i.kana).join(' ');
+  rb.innerHTML = '智慧複習<span class="sub">'
+    + (due ? due + ' 個到期 · ' : '') + '從最弱的開始：' + weakest + '</span>';
+
+  // 進度只在這台裝置上，學到一定程度就該提醒備份
+  $('#storage-warn').hidden = STORAGE_OK;
+  const learnedN = Object.keys(S.cards).length;
+  const stale = !S.lastExport || (Date.now() - S.lastExport) > 14 * DAY;
+  const showHint = STORAGE_OK && learnedN >= 15 && stale;
+  $('#backup-hint').hidden = !showHint;
+  if (showHint) {
+    $('#backup-hint-text').innerHTML = '<b>學了 ' + learnedN + ' 個字了，備份一下吧</b>'
+      + '進度只存在這個瀏覽器裡。換手機、清瀏覽器資料都會歸零，匯出一個檔案就保住了。';
+  }
 
   $('#lesson-hint').textContent = S.done.length + ' / ' + ALL_LESSONS.length + ' 課完成';
   $('#streak-n').textContent = S.streak;
@@ -1526,10 +1602,13 @@ function renderChapters(){
     const rows = ch.lessons.map(l => {
       const isDone = S.done.includes(l.id);
       const isNext = nl && nl.id === l.id;
-      return '<button class="lesson' + (isDone ? ' done' : '') + (isNext ? ' next' : '') + '" data-lesson="' + l.id + '">'
+      return '<div class="lesson' + (isDone ? ' done' : '') + (isNext ? ' is-next' : '') + '">'
+        + '<button class="lesson-main" data-lesson="' + l.id + '">'
         + '<span class="dot">' + (isDone ? '✓' : (isNext ? '▸' : '')) + '</span>'
         + '<span class="kanas" lang="ja">' + l.chars.map(c => c.kana).join(' ') + '</span>'
-        + '<span class="rom">' + l.chars.length + ' 字</span></button>';
+        + '<span class="rom">' + (isDone ? '重學' : l.chars.length + ' 字') + '</span></button>'
+        + (isDone ? '<button class="lesson-quiz" data-quiz="' + l.id + '">測驗 →</button>' : '')
+        + '</div>';
     }).join('');
     return '<div class="chapter' + (ci === openIdx ? ' open' : '') + '" data-ch="' + ci + '">'
       + '<button class="chapter-head"><span class="ttl">' + ch.title + '</span>'
@@ -1584,6 +1663,8 @@ function renderFreeSub(){
 $('#chapters').addEventListener('click', e => {
   const head = e.target.closest('.chapter-head');
   if (head) { head.closest('.chapter').classList.toggle('open'); return; }
+  const quiz = e.target.closest('[data-quiz]');
+  if (quiz) { startLessonQuiz(LESSON_BY_ID[quiz.dataset.quiz]); return; }
   const row = e.target.closest('[data-lesson]');
   if (row) startLesson(LESSON_BY_ID[row.dataset.lesson]);
 });
@@ -1685,7 +1766,8 @@ $('#who-reset').addEventListener('click', () => {
   syncControls(); renderHome(); renderWho();
 });
 
-$('#who-export').addEventListener('click', () => {
+function doExport(){
+  S.lastExport = Date.now(); save();
   const blob = new Blob([JSON.stringify(STORE, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1695,7 +1777,9 @@ $('#who-export').addEventListener('click', () => {
   a.download = 'kana-keiko-backup-' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '.json';
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-});
+}
+$('#who-export').addEventListener('click', doExport);
+$('#backup-now').addEventListener('click', () => { doExport(); renderHome(); });
 $('#who-import').addEventListener('click', () => $('#who-file').click());
 $('#who-file').addEventListener('change', e => {
   const file = e.target.files && e.target.files[0];
@@ -1834,11 +1918,49 @@ function startLessonQuiz(lesson){
   shuffle(cs.slice()).forEach(c => qs.push(makeQ(c, 'write', cs)));
   runQuiz(qs, {kind:'lesson', lesson});
 }
+/* 弱項分數。錯誤率權重最高，其次是熟練度低、拖太久沒複習 */
+function weakness(it){
+  const c = S.cards[it.id];
+  if (!c) return 0;
+  const overdueDays = Math.max(0, (Date.now() - c.d) / DAY);
+  const errRate = c.s ? c.w / c.s : 0;
+  return (MAXLVL - c.l) * 2
+       + errRate * 8
+       + Math.min(overdueDays, 7)
+       + (c.w >= 2 ? 2 : 0);
+}
+/* 越弱的字給越難的題型：認不得就先做選擇題，快熟了就逼你默寫 */
+function kindForLevel(lvl){
+  if (lvl <= 1) return Math.random() < 0.6 ? 'recog' : 'recall';
+  if (lvl <= 3) return Math.random() < 0.5 ? 'recall' : 'type';
+  return Math.random() < 0.5 ? 'write' : 'type';
+}
 function startReview(){
-  const due = shuffle(dueItems()).slice(0, 25);
-  if (!due.length) return;
-  const kinds = ['recog','recall','write'];
-  runQuiz(due.map(i => makeQ(i, kinds[(Math.random()*3)|0], null)), {kind:'review'});
+  const learned = learnedItems();
+  if (!learned.length) return;
+
+  // 最弱的先考
+  const core = learned.map(i => ({i, w:weakness(i)}))
+    .sort((a, b) => b.w - a.w).slice(0, 14).map(x => x.i);
+
+  // 再把弱項的「混淆同伴」拉進來一起考。
+  // 分不清 シ 和 ツ 的人，只考 シ 是看不出他到底分不分得清的。
+  const have = new Set(core.map(i => i.id));
+  const partners = [];
+  for (const it of core.slice(0, 6)) {
+    const conf = CONFUSE_MAP[it.kana];
+    if (!conf) continue;
+    for (const k of conf) {
+      if (partners.length >= 6) break;
+      const p = BY_KANA[k];
+      if (p && S.cards[p.id] && !have.has(p.id)) { have.add(p.id); partners.push(p); }
+    }
+    if (partners.length >= 6) break;
+  }
+
+  const qs = core.concat(partners).map(it =>
+    makeQ(it, kindForLevel(S.cards[it.id] ? S.cards[it.id].l : 0), null));
+  runQuiz(shuffle(qs), {kind:'review'});
 }
 function startFree(){
   const p = freePool();
