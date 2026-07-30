@@ -279,6 +279,14 @@ button{cursor:pointer;border:0;background:none}
   padding-right:.2rem;
 }
 .lore-row .v em{font-style:normal;color:var(--ink);font-weight:600}
+/* 圖像聯想那一行給多一點份量，emoji 要看得見才有用 */
+.lore-row.mnemo{
+  align-items:center;background:var(--ai-soft);border-radius:var(--r-sm);
+  padding:.5rem .6rem;margin:.1rem 0;
+}
+.lore-row.mnemo .v{color:var(--ink)}
+.emo{font-size:1.9rem;line-height:1;padding-right:.45rem;vertical-align:-.35em}
+.feedback .emo,.lore-row.mnemo.sm .emo{font-size:1.3rem;vertical-align:-.2em;padding-right:.3rem}
 
 /* ── 手寫格 ─────────────────────────────────────────────────────────── */
 .pad-wrap{position:relative;width:100%;max-width:19rem;aspect-ratio:1;margin:0 auto}
@@ -825,6 +833,105 @@ const LORE = {
   'ン':['爾','取「爾」的一部分。一點在上，尾巴由下往上挑'],
 };
 
+/* ═══ 圖像與諧音聯想 ═══════════════════════════════════════════════════
+   字源負責「為什麼長這樣」，這裡負責「怎麼想起來」。
+   用 emoji 當圖像是因為它在任何裝置上都顯示得出來，不用下載任何檔案。
+   [emoji, 一句聯想]                                                      */
+const MNEMO = {
+  'あ':['😮','張大嘴「啊」一聲 → a'],
+  'い':['👕','兩撇像「衣」服的兩條袖子 → i'],
+  'う':['🏠','上面一點是「屋」頂，下面一道彎牆 → u'],
+  'え':['🙋','有人舉手喊「欸」，上面那一點是頭 → e'],
+  'お':['😯','驚訝的「喔」 → o；跟 あ 只差右上多一撇'],
+  'か':['☕','「咖」啡的咖，就是「加」多一點 → ka'],
+  'き':['🔑','形狀活像一把鑰匙，key → ki'],
+  'く':['😭','嘴角往下，像在「哭」 → ku'],
+  'け':['🚪','「開」了一道縫的門 → ke'],
+  'こ':['👄','上下兩片嘴唇，「口」 → ko'],
+  'さ':['☂️','一把「傘」，上面傘骨下面傘柄 → sa'],
+  'し':['🎣','一根釣竿垂進水裡，會「濕」 → shi'],
+  'す':['🍥','一橫下面捲個圈，像「酥」餅的漩渦 → su'],
+  'せ':['🎨','調「色」盤插著兩支筆 → se'],
+  'そ':['⚡','像閃電，咻一下穿「梭」過去 → so'],
+  'た':['🧍','「他」一個人站在那裡 → ta'],
+  'ち':['🍚','張開嘴要「吃」飯 → chi'],
+  'つ':['🌊','橫躺的彎鉤，就是一道海浪 → tsu'],
+  'て':['✋','手臂伸出去；日文「手」就唸 te'],
+  'と':['📌','一根針插著一個點，圖釘 → to'],
+  'な':['🤲','伸手去「拿」東西 → na'],
+  'に':['👥','左邊一豎是人，右邊兩橫，「你」 → ni'],
+  'ぬ':['🍜','尾巴打了個結，像麵條打結 → nu'],
+  'ね':['🐱','尾巴捲起來；日文貓叫 ねこ neko → ne'],
+  'の':['🚫','一個圈，就是 no 的 O → no'],
+  'は':['😄','「哈」哈大笑 → ha'],
+  'ひ':['😁','一個微笑的嘴，「嘻」 → hi'],
+  'ふ':['🗻','富士山加兩片雲，「福」 → fu'],
+  'へ':['⛰️','一座小山的側面 → he'],
+  'ほ':['🎅','聖誕老人「呵呵呵」 → ho；比 は 多一橫'],
+  'ま':['👩','「媽」媽 → ma'],
+  'み':['🍙','像數字 3，「米」飯 → mi'],
+  'む':['🐮','牛叫 moo，右上還有牛角 → mu'],
+  'め':['👁️','日文「目」就是 め，眼睛 → me'],
+  'も':['🧶','就是「毛」線 → mo'],
+  'や':['🏹','「呀」的一箭射出去 → ya'],
+  'ゆ':['🐟','形狀就是一條魚游過去 → yu'],
+  'よ':['🪀','溜溜球「唷」 → yo'],
+  'ら':['🍜','「拉」麵 → ra'],
+  'り':['🔪','兩豎像一把刀，「利」 → ri'],
+  'る':['🌀','尾巴繞成一個圈 → ru'],
+  'れ':['🏃','尾巴往外甩出去，像跑起來 → re'],
+  'ろ':['🛣️','跟 る 一樣但不打圈，一條「路」 → ro'],
+  'わ':['😮','「哇」！ → wa；尾巴向內收，不像 れ 甩出去'],
+  'を':['〰️','只當助詞用，唸法跟 お 一樣 → o'],
+  'ん':['🤔','鼻音「嗯」 → n；也像手寫的 n'],
+  'ア':['📐','「阿」的左耳旁，像一支角尺 → a'],
+  'イ':['🚶','一個人側身在走，就是「亻」 → i'],
+  'ウ':['🏠','「屋」的寶蓋頭 → u'],
+  'エ':['🔧','就是「工」字，工具 → e'],
+  'オ':['✝️','「方」字旁，像一個十字 → o'],
+  'カ':['💪','就是「力」，用力 → ka'],
+  'キ':['🔑','跟平假名 き 同源，一樣是鑰匙 key → ki'],
+  'ク':['🌙','一個開口的角，像月牙 → ku'],
+  'ケ':['🎋','「介」的上半，像竹葉 → ke'],
+  'コ':['📦','開口的方框，像箱子的「口」 → ko'],
+  'サ':['🌱','像「艹」穿一豎，草的形狀 → sa'],
+  'シ':['💧','兩點在左，尾巴由下往上挑 → shi；水滴的三點水'],
+  'ス':['➗','像「又」 → su'],
+  'セ':['🎨','「世」的左半，跟平假名 せ 同源 → se'],
+  'ソ':['✂️','一點在上，尾巴由上往下撇 → so'],
+  'タ':['🌗','ク 加一撇，「多」了一點 → ta'],
+  'チ':['🥢','就是「千」 → chi'],
+  'ツ':['💦','三點在上，尾巴由下往上挑 → tsu'],
+  'テ':['✋','兩橫加一撇，跟平假名 て 同源 → te'],
+  'ト':['📌','一豎右邊點一下，圖釘 → to'],
+  'ナ':['➕','「十」歪一撇 → na'],
+  'ニ':['🥢','就是「二」，ni = two，最好記的一個'],
+  'ヌ':['🍜','ス 加一撇，像打結的麵 → nu'],
+  'ネ':['🐱','「示」字旁；跟平假名 ね 同源 → ne'],
+  'ノ':['〽️','就是一撇 → no'],
+  'ハ':['🎿','就是「八」，像兩支雪杖 → ha'],
+  'ヒ':['🥄','「比」的右半，像一支湯匙 → hi'],
+  'フ':['🪝','一筆的勾，像掛鉤 → fu'],
+  'ヘ':['⛰️','跟平假名 へ 幾乎一模一樣 → he'],
+  'ホ':['🌲','像「木」，一棵樹 → ho'],
+  'マ':['🧣','「万」的草寫，像一條圍巾 → ma'],
+  'ミ':['🍚','就是「三」，剛好三筆，「米」 → mi'],
+  'ム':['🔺','「牟」的上半，像一個三角 → mu'],
+  'メ':['❌','一個叉 → me'],
+  'モ':['🧶','就是「毛」，跟平假名 も 長得也像 → mo'],
+  'ヤ':['🏹','「也」的一部分 → ya'],
+  'ユ':['🐟','「由」的下半；跟平假名 ゆ 同源 → yu'],
+  'ヨ':['📶','三橫，像 E 反過來 → yo'],
+  'ラ':['🍜','「良」的上半，「拉」麵 → ra'],
+  'リ':['🔪','跟平假名 り 幾乎一樣，兩豎像刀 → ri'],
+  'ル':['🌀','「流」的下半，水流成圈 → ru'],
+  'レ':['✔️','一筆的勾，就像打勾 → re'],
+  'ロ':['🔲','就是「口」，一個方框 → ro'],
+  'ワ':['😮','「哇」！ → wa；比 ク 多一橫，開口比較大'],
+  'ヲ':['〰️','現代幾乎不用，只有助詞才寫 → o'],
+  'ン':['🤔','一點在上，尾巴由下往上挑 → n；跟 ソ 剛好相反'],
+};
+
 /* 打字時可接受的其他拼法 */
 const ALT = {
   shi:['si'], chi:['ti'], tsu:['tu'], fu:['hu'], ji:['zi'], wo:['o'], n:['nn'],
@@ -862,6 +969,7 @@ for (const set of ['base','daku','yoon']) {
           row: ri, col: ci, rowLabel: row[0],
           strokes: script === 'h' ? hs : ks,
           lore: LORE[kana] || null,
+          mnemo: MNEMO[kana] || null,
           accept: [romaji.replace(/\s*\(.+\)/,'')].concat(ALT[romaji] || []),
         };
         it.accept = [...new Set(it.accept.map(s => s.toLowerCase()))];
@@ -1415,6 +1523,10 @@ function renderLearn(){
   if (L.i === 0 && L.lesson.note) {
     lore += '<div class="lore-row"><span class="k">重點</span><span class="v"><em>' + esc(L.lesson.note) + '</em></span></div>';
   }
+  if (it.mnemo) {
+    lore += '<div class="lore-row mnemo"><span class="k">聯想</span><span class="v">'
+      + '<span class="emo">' + it.mnemo[0] + '</span>' + esc(it.mnemo[1]) + '</span></div>';
+  }
   if (it.lore) {
     lore += '<div class="lore-row"><span class="k">字源</span><span class="v">'
       + '<span class="src" lang="ja">' + it.lore[0] + '</span>' + esc(it.lore[1]) + '</span></div>';
@@ -1566,11 +1678,16 @@ function nextQuestion(){
   }
 }
 
+function mnemoLine(item){
+  if (!item.mnemo) return '';
+  return '<span class="tip"><span class="emo">' + item.mnemo[0] + '</span>' + esc(item.mnemo[1]) + '</span>';
+}
 function loreLine(item){
   if (!item.lore) return '';
   return '<span class="tip">字源 <span class="src" lang="ja">' + item.lore[0] + '</span>'
     + esc(item.lore[1]) + '</span>';
 }
+function hintLines(item){ return mnemoLine(item) + loreLine(item); }
 function stamp(ok){
   const el = $('#stamp');
   el.textContent = ok ? '○' : '×';
@@ -1601,7 +1718,7 @@ function answer(ok, chosenId){
   fb.innerHTML = '<span class="big"><span class="kana" lang="ja">' + item.kana + '</span> = ' + esc(item.romaji) + '</span>'
     + '<span class="tip">' + item.rowLabel + '・' + scriptName(item.script)
     + (item.strokes ? '・' + item.strokes + ' 畫' : '') + '</span>'
-    + (ok ? '' : loreLine(item));
+    + (ok ? '' : hintLines(item));
 
   if (!ok && Q.qs.length < Q.base + 8) {
     Q.qs.splice(Math.min(Q.qs.length, Q.i + 4), 0, Q.current);
@@ -1617,7 +1734,7 @@ $('#help-btn').addEventListener('click', () => {
   const item = Q.current.item;
   const fb = $('#feedback');
   fb.className = 'feedback on';
-  fb.innerHTML = '<span class="big">提示</span>' + (loreLine(item)
+  fb.innerHTML = '<span class="big">提示</span>' + (hintLines(item)
     || '<span class="tip">' + item.rowLabel + '・' + scriptName(item.script) + '</span>');
   $('#help-btn').textContent = '（提示已顯示，這題會再出現一次）';
 });
