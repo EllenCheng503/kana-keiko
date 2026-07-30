@@ -6,8 +6,8 @@
 <meta name="theme-color" content="#EDEFF2">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="仮名けいこ">
-<meta name="description" content="五十音速記工具：辨識、打字、反查、手寫描摹，附間隔複習與五十音掌握度圖表。">
-<title>仮名けいこ · 五十音速記</title>
+<meta name="description" content="從零開始學日文五十音：每課先教會 5 個字（漢字來源、字形聯想、發音、手寫描摹），再測這 5 個字。">
+<title>仮名けいこ · 從零學五十音</title>
 </head>
 <body>
 <style>
@@ -21,7 +21,7 @@
   --ink-faint:#98A1AF;
   --ai:#2B4A8F;          /* 藍 — interactive */
   --ai-soft:#E3E9F6;
-  --shu:#C8412A;         /* 朱 — 批改／筆順提示 */
+  --shu:#C8412A;         /* 朱 — 批改／範本 */
   --shu-soft:#F7E4DF;
   --matcha:#3E7A4E;      /* 正解 */
   --matcha-soft:#E0EFE4;
@@ -87,29 +87,30 @@ body{
 button,input{font:inherit;color:inherit}
 button{cursor:pointer;border:0;background:none}
 :focus-visible{outline:2.5px solid var(--ai);outline-offset:2px;border-radius:4px}
-.jp{font-family:var(--font-gothic)}
 
 /* ── shell ──────────────────────────────────────────────────────────── */
 .wrap{width:var(--wrap);margin:0 auto;padding:0 1rem env(safe-area-inset-bottom)}
-.screen{display:none;flex-direction:column;gap:1.15rem;padding-bottom:2.5rem}
+.screen{display:none;flex-direction:column;gap:1.1rem;padding-bottom:2.5rem}
 .screen.is-on{display:flex}
+#screen-learn{gap:.7rem;padding-bottom:0}
+#screen-learn .pad-wrap,#screen-learn .pad-meta{max-width:16rem}
 
 .masthead{
   display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;
-  padding:1.5rem 0 .9rem;border-bottom:1.5px solid var(--rule-strong);
+  padding:1.4rem 0 .85rem;border-bottom:1.5px solid var(--rule-strong);
 }
 .masthead h1{
   margin:0;font-family:var(--font-mincho);font-weight:600;
-  font-size:1.75rem;letter-spacing:.06em;line-height:1.1;
+  font-size:1.7rem;letter-spacing:.06em;line-height:1.1;
 }
 .eyebrow{
   font-family:var(--font-mono);font-size:.625rem;letter-spacing:.19em;
   text-transform:uppercase;color:var(--ink-faint);display:block;margin-bottom:.3rem;
 }
-.masthead-side{display:flex;align-items:center;gap:.5rem}
+.masthead-side{display:flex;align-items:center;gap:.55rem}
 .streak{
-  font-family:var(--font-mono);font-size:.7rem;letter-spacing:.06em;
-  color:var(--ink-soft);text-align:right;line-height:1.35;font-variant-numeric:tabular-nums;
+  font-family:var(--font-mono);font-size:.7rem;letter-spacing:.04em;
+  color:var(--ink-soft);white-space:nowrap;font-variant-numeric:tabular-nums;
 }
 .streak b{font-size:1.2rem;color:var(--ai);font-weight:600;padding:0 .15em}
 .icon-btn{
@@ -118,136 +119,163 @@ button{cursor:pointer;border:0;background:none}
 }
 .icon-btn:hover{border-color:var(--ai);color:var(--ai)}
 
-/* ── hero: 今日の一字 ───────────────────────────────────────────────── */
-.hero{display:flex;align-items:center;gap:1.1rem;padding:.35rem 0 .1rem}
-.genko{
-  --sq:6.5rem;
-  width:var(--sq);height:var(--sq);flex:none;position:relative;
-  background:var(--card);border:1.5px solid var(--rule-strong);border-radius:3px;
-  display:grid;place-items:center;box-shadow:var(--shadow);
-}
-.genko::before,.genko::after{
-  content:"";position:absolute;background:
-    repeating-linear-gradient(var(--dir,90deg),var(--rule) 0 5px,transparent 5px 10px);
-}
-.genko::before{left:0;right:0;top:50%;height:1.5px;--dir:90deg}
-.genko::after{top:0;bottom:0;left:50%;width:1.5px;--dir:180deg}
-.genko span{
-  font-family:var(--font-mincho);font-size:calc(var(--sq) * .68);line-height:1;
-  position:relative;z-index:1;
-}
-.hero-copy h2{margin:0 0 .2rem;font-size:1rem;font-weight:650;letter-spacing:.01em}
-.hero-copy p{margin:0;font-size:.8rem;color:var(--ink-soft);line-height:1.5}
-.hero-copy .romaji{font-family:var(--font-mono);color:var(--ai);letter-spacing:.04em}
-
-/* ── sections ───────────────────────────────────────────────────────── */
-.block{display:flex;flex-direction:column;gap:.65rem}
+.block{display:flex;flex-direction:column;gap:.6rem}
 .block-head{display:flex;align-items:baseline;justify-content:space-between;gap:.75rem}
 .block-head h3{
   margin:0;font-size:.72rem;font-family:var(--font-mono);letter-spacing:.16em;
   text-transform:uppercase;color:var(--ink-faint);font-weight:500;
 }
 .block-head .hint{font-size:.72rem;color:var(--ink-faint)}
-.linkish{font-size:.72rem;color:var(--ai);text-decoration:underline;text-underline-offset:3px}
-
-.chips{display:flex;flex-wrap:wrap;gap:.4rem}
-.chip{
-  display:inline-flex;align-items:center;gap:.4rem;
-  padding:.42rem .7rem;border-radius:999px;
-  border:1.5px solid var(--hair);background:var(--card);
-  font-size:.8rem;color:var(--ink-soft);transition:background .15s,border-color .15s,color .15s;
-}
-.chip .n{font-family:var(--font-mono);font-size:.68rem;opacity:.7}
-.chip[aria-pressed="true"]{background:var(--ai);border-color:var(--ai);color:var(--paper)}
-
-.modes{display:grid;grid-template-columns:1fr 1fr;gap:.55rem}
-.mode{
-  text-align:left;padding:.7rem .75rem;border-radius:var(--r-sm);
-  border:1.5px solid var(--hair);background:var(--card);
-  display:flex;flex-direction:column;gap:.12rem;transition:border-color .15s,background .15s;
-}
-.mode .t{font-size:.9rem;font-weight:600}
-.mode .d{font-size:.7rem;color:var(--ink-soft);line-height:1.4}
-.mode[aria-pressed="true"]{border-color:var(--ai);background:var(--ai-soft)}
-.mode[aria-pressed="true"] .t{color:var(--ai)}
-
-.seg{display:flex;gap:0;border:1.5px solid var(--hair);border-radius:var(--r-sm);overflow:hidden;background:var(--card)}
-.seg button{flex:1;padding:.45rem .3rem;font-size:.78rem;color:var(--ink-soft);border-right:1.5px solid var(--hair)}
-.seg button:last-child{border-right:0}
-.seg button[aria-pressed="true"]{background:var(--ai-soft);color:var(--ai);font-weight:600}
-
-.start{
-  margin-top:.2rem;padding:.95rem 1rem;border-radius:var(--r-sm);
-  background:var(--ai);color:var(--paper);font-size:1rem;font-weight:650;letter-spacing:.03em;
-  box-shadow:var(--shadow);transition:transform .12s,filter .15s;
-}
-.start:hover{filter:brightness(1.08)}
-.start:active{transform:translateY(1px)}
-.start[disabled]{background:var(--card-2);color:var(--ink-faint);box-shadow:none;cursor:not-allowed}
-.start .sub{display:block;font-size:.7rem;font-weight:400;opacity:.85;font-family:var(--font-mono);letter-spacing:.06em;margin-top:.1rem}
-
-/* ── mastery chart ──────────────────────────────────────────────────── */
-.chart{
-  background:var(--card);border:1.5px solid var(--hair);border-radius:var(--r);
-  padding:.8rem;display:flex;flex-direction:column;gap:.7rem;
-}
-.chart-grid{display:grid;gap:3px;align-items:stretch}
-.cell{
-  aspect-ratio:1.3;border-radius:4px;display:grid;place-items:center;position:relative;
-  font-family:var(--font-gothic);font-size:clamp(.78rem,3.4vw,1rem);
-  background:var(--card-2);color:var(--ink);border:1px solid transparent;
-}
-.cell.void{background:transparent}
-.cell.lab{
-  background:transparent;color:var(--ink-faint);font-family:var(--font-mono);
-  font-size:.6rem;letter-spacing:.05em;aspect-ratio:auto;
-}
-.cell.lab.rowlab{font-family:var(--font-gothic);font-size:.72rem}
-.cell[data-m="0"]{color:var(--ink-faint)}
-.cell.due::after{
-  content:"";position:absolute;top:2px;right:2px;width:5px;height:5px;
-  border-radius:50%;background:var(--shu);
-}
-.legend{
-  display:flex;align-items:center;gap:.5rem;font-size:.66rem;color:var(--ink-faint);
-  font-family:var(--font-mono);letter-spacing:.05em;
-}
-.legend .bar{
-  flex:1;height:6px;border-radius:3px;
-  background:linear-gradient(90deg,var(--card-2),var(--ai));
-}
-
 .note{font-size:.72rem;color:var(--ink-faint);line-height:1.6}
 .note b{color:var(--ink-soft);font-weight:600}
 
-/* ── drill ──────────────────────────────────────────────────────────── */
-.drillbar{display:flex;align-items:center;gap:.75rem;padding:1.1rem 0 .7rem}
-.quit{font-size:.75rem;color:var(--ink-soft);padding:.25rem .1rem}
+/* ── 主行動鈕 ───────────────────────────────────────────────────────── */
+.cta{
+  padding:1rem;border-radius:var(--r-sm);background:var(--ai);color:var(--paper);
+  font-size:1.02rem;font-weight:650;letter-spacing:.03em;box-shadow:var(--shadow);
+  transition:filter .15s,transform .12s;text-align:center;
+}
+.cta:hover{filter:brightness(1.08)}
+.cta:active{transform:translateY(1px)}
+.cta[disabled]{background:var(--card-2);color:var(--ink-faint);box-shadow:none;cursor:not-allowed}
+.cta .sub{
+  display:block;font-size:.72rem;font-weight:400;opacity:.85;
+  font-family:var(--font-mono);letter-spacing:.05em;margin-top:.15rem;
+}
+.ghost{
+  padding:.85rem;border-radius:var(--r-sm);border:1.5px solid var(--hair);
+  background:var(--card);font-weight:600;font-size:.9rem;color:var(--ink-soft);text-align:center;
+}
+.ghost:hover{border-color:var(--ai);color:var(--ai)}
+.ghost .sub{display:block;font-size:.7rem;font-weight:400;color:var(--ink-faint);margin-top:.1rem}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:.55rem}
+/* 學習卡的上下一個永遠黏在螢幕底部，不用捲到底才按得到 */
+.learn-nav{
+  position:sticky;bottom:0;z-index:2;margin-top:.2rem;
+  display:grid;grid-template-columns:1fr 1.4fr;gap:.55rem;
+  padding:.7rem 0 calc(.7rem + env(safe-area-inset-bottom));
+  background:linear-gradient(to top,var(--paper) 72%,transparent);
+}
+
+/* ── 課程列表 ───────────────────────────────────────────────────────── */
+.chapter{border:1.5px solid var(--hair);border-radius:var(--r);background:var(--card);overflow:hidden}
+.chapter-head{
+  width:100%;display:flex;align-items:center;gap:.6rem;padding:.75rem .85rem;text-align:left;
+}
+.chapter-head .ttl{flex:1;font-size:.88rem;font-weight:650}
+.chapter-head .cnt{font-family:var(--font-mono);font-size:.7rem;color:var(--ink-faint)}
+.chapter-head .caret{color:var(--ink-faint);font-size:.7rem;transition:transform .2s}
+.chapter.open .chapter-head .caret{transform:rotate(90deg)}
+.chapter-body{display:none;flex-direction:column;border-top:1.5px solid var(--hair)}
+.chapter.open .chapter-body{display:flex}
+
+.lesson{
+  display:flex;align-items:center;gap:.7rem;padding:.6rem .85rem;text-align:left;
+  border-bottom:1px solid var(--hair);
+}
+.lesson:last-child{border-bottom:0}
+.lesson:hover{background:var(--card-2)}
+.lesson .dot{
+  width:1.35rem;height:1.35rem;border-radius:50%;flex:none;display:grid;place-items:center;
+  border:1.5px solid var(--rule-strong);font-size:.62rem;font-family:var(--font-mono);color:var(--ink-faint);
+}
+.lesson.done .dot{background:var(--matcha);border-color:var(--matcha);color:var(--paper)}
+.lesson.next .dot{border-color:var(--ai);color:var(--ai)}
+.lesson .kanas{flex:1;font-family:var(--font-gothic);font-size:1.05rem;letter-spacing:.12em}
+.lesson .rom{font-family:var(--font-mono);font-size:.66rem;color:var(--ink-faint);letter-spacing:.05em}
+.lesson.next .kanas{color:var(--ai);font-weight:600}
+
+/* ── 學習卡 ─────────────────────────────────────────────────────────── */
+.learn-top{
+  display:flex;align-items:center;gap:.75rem;padding:1rem 0 .6rem;
+}
+.learn-top .ttl{flex:1;font-size:.8rem;color:var(--ink-soft)}
+.dots{display:flex;gap:.25rem}
+.dots i{width:6px;height:6px;border-radius:50%;background:var(--rule-strong);display:block}
+.dots i.on{background:var(--ai);transform:scale(1.3)}
+
+.learn{
+  background:var(--card);border:1.5px solid var(--hair);border-radius:var(--r);
+  box-shadow:var(--shadow);padding:1.1rem 1rem;display:flex;flex-direction:column;
+  align-items:center;gap:.55rem;
+}
+.learn .big{
+  display:flex;align-items:center;justify-content:center;gap:1.1rem;width:100%;
+}
+.learn .kana-lg{font-family:var(--font-mincho);font-size:clamp(4rem,20vw,5.5rem);line-height:1}
+.learn .say{display:flex;flex-direction:column;align-items:flex-start;gap:.35rem}
+.learn .rom-lg{
+  font-family:var(--font-mono);font-size:clamp(2rem,10vw,2.6rem);color:var(--ai);
+  font-weight:600;letter-spacing:.02em;line-height:1;
+}
+.learn .sound{
+  display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .65rem;border-radius:999px;
+  border:1.5px solid var(--hair);font-size:.72rem;color:var(--ink-soft);
+}
+.learn .sound:hover{border-color:var(--ai);color:var(--ai)}
+.lore{
+  width:100%;border-top:1.5px dashed var(--rule);padding-top:.7rem;
+  display:flex;flex-direction:column;gap:.4rem;
+}
+.lore-row{display:flex;align-items:baseline;gap:.55rem;font-size:.82rem;line-height:1.5}
+.lore-row .k{
+  font-family:var(--font-mono);font-size:.6rem;letter-spacing:.12em;color:var(--ink-faint);
+  flex:none;width:2.6rem;text-transform:uppercase;
+}
+.lore-row .v{flex:1;color:var(--ink-soft)}
+.lore-row .v .src{
+  font-family:var(--font-mincho);font-size:1.5rem;color:var(--shu);vertical-align:-.15em;
+  padding-right:.2rem;
+}
+.lore-row .v em{font-style:normal;color:var(--ink);font-weight:600}
+
+/* ── 手寫格 ─────────────────────────────────────────────────────────── */
+.pad-wrap{position:relative;width:100%;max-width:19rem;aspect-ratio:1;margin:0 auto}
+canvas.pad{
+  width:100%;height:100%;display:block;touch-action:none;
+  background:var(--card);border:1.5px solid var(--rule-strong);border-radius:4px;
+  cursor:crosshair;
+}
+.pad-meta{
+  display:flex;justify-content:space-between;align-items:center;gap:.5rem;
+  font-family:var(--font-mono);font-size:.68rem;letter-spacing:.06em;color:var(--ink-faint);
+  max-width:19rem;margin:0 auto;width:100%;
+}
+.pad-meta .strokes b{color:var(--ink-soft)}
+.pad-meta .strokes b.over{color:var(--shu)}
+.tools{display:flex;gap:.35rem}
+.tool{
+  padding:.32rem .55rem;border-radius:999px;border:1.5px solid var(--hair);
+  font-size:.7rem;color:var(--ink-soft);background:var(--card);
+}
+.tool:hover{border-color:var(--ai);color:var(--ai)}
+.tool[aria-pressed="true"]{border-color:var(--ai);background:var(--ai-soft);color:var(--ai)}
+
+/* ── 測驗 ───────────────────────────────────────────────────────────── */
+.drillbar{display:flex;align-items:center;gap:.75rem;padding:1rem 0 .65rem}
+.quit{font-size:.75rem;color:var(--ink-soft);padding:.25rem .1rem;white-space:nowrap}
 .progress{flex:1;height:4px;border-radius:2px;background:var(--card-2);overflow:hidden}
 .progress i{display:block;height:100%;background:var(--ai);width:0;transition:width .3s ease}
 .count{font-family:var(--font-mono);font-size:.72rem;color:var(--ink-soft);font-variant-numeric:tabular-nums}
 
 .stage{
   background:var(--card);border:1.5px solid var(--hair);border-radius:var(--r);
-  box-shadow:var(--shadow);padding:1.4rem 1rem;display:flex;flex-direction:column;
-  align-items:center;gap:.5rem;position:relative;overflow:hidden;min-height:11.5rem;
+  box-shadow:var(--shadow);padding:1.3rem 1rem;display:flex;flex-direction:column;
+  align-items:center;gap:.45rem;position:relative;overflow:hidden;min-height:10.5rem;
   justify-content:center;
 }
+.stage.compact{min-height:0;padding:.7rem 1rem;gap:.15rem}
 .prompt-label{
-  font-family:var(--font-mono);font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;
+  font-family:var(--font-mono);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;
   color:var(--ink-faint);
 }
-.prompt-kana{font-family:var(--font-mincho);font-size:clamp(4.2rem,22vw,6rem);line-height:1.05;letter-spacing:.02em}
-.prompt-romaji{font-family:var(--font-mono);font-size:clamp(2.4rem,13vw,3.4rem);letter-spacing:.02em;color:var(--ai)}
-.prompt-sub{font-size:.75rem;color:var(--ink-faint)}
-/* 手寫模式：題目卡壓扁，讓格子和按鈕在小螢幕上不用捲動 */
-.stage.compact{min-height:0;padding:.75rem 1rem;gap:.2rem}
-.stage.compact .prompt-romaji{font-size:clamp(1.9rem,9vw,2.4rem)}
-
+.prompt-kana{font-family:var(--font-mincho);font-size:clamp(4rem,21vw,5.6rem);line-height:1.05}
+.prompt-romaji{font-family:var(--font-mono);font-size:clamp(2.3rem,12vw,3.2rem);color:var(--ai);font-weight:600}
+.stage.compact .prompt-romaji{font-size:clamp(1.9rem,9vw,2.3rem)}
+.prompt-sub{font-size:.74rem;color:var(--ink-faint)}
 .stamp{
   position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;
-  font-size:9rem;line-height:1;font-family:var(--font-mincho);
-  opacity:0;
+  font-size:9rem;line-height:1;font-family:var(--font-mincho);opacity:0;
 }
 .stamp.go{animation:stamp .75s ease-out forwards}
 .stamp.ok{color:var(--matcha)}
@@ -266,25 +294,26 @@ button{cursor:pointer;border:0;background:none}
 .answers{display:grid;grid-template-columns:1fr 1fr;gap:.55rem}
 .ans{
   padding:.85rem .5rem;border-radius:var(--r-sm);border:1.5px solid var(--hair);
-  background:var(--card);font-size:1.15rem;font-family:var(--font-mono);letter-spacing:.03em;
+  background:var(--card);font-size:1.15rem;font-family:var(--font-mono);font-weight:600;
   transition:border-color .12s,background .12s;min-height:3.4rem;
 }
-.ans.kana{font-family:var(--font-gothic);font-size:1.9rem}
+.ans.kana{font-family:var(--font-gothic);font-size:1.9rem;font-weight:400}
 .ans:hover:not(:disabled){border-color:var(--ai)}
 .ans.right{border-color:var(--matcha);background:var(--matcha-soft);color:var(--matcha)}
 .ans.wrong{border-color:var(--shu);background:var(--shu-soft);color:var(--shu)}
 .ans:disabled{cursor:default}
 
-.typerow{display:flex;gap:.5rem}
-.typerow input{
-  flex:1;padding:.8rem .85rem;border-radius:var(--r-sm);border:1.5px solid var(--hair);
-  background:var(--card);font-family:var(--font-mono);font-size:1.15rem;letter-spacing:.06em;
+.helprow{display:flex;justify-content:center}
+.help-btn{
+  font-size:.74rem;color:var(--ink-faint);border:1.5px solid var(--hair);background:var(--card);
+  padding:.4rem .9rem;border-radius:999px;
 }
-.typerow input:focus{border-color:var(--ai);outline:none}
-.typerow button{
-  padding:0 1.1rem;border-radius:var(--r-sm);background:var(--ai);color:var(--paper);
-  font-weight:600;font-size:.9rem;
-}
+.help-btn:hover{border-color:var(--shu);color:var(--shu)}
+
+.grade{display:grid;grid-template-columns:1fr 1fr;gap:.55rem}
+.grade button{padding:.85rem;border-radius:var(--r-sm);font-weight:600;font-size:.9rem;border:1.5px solid}
+.grade .again{border-color:var(--shu);color:var(--shu);background:var(--shu-soft)}
+.grade .got{border-color:var(--matcha);color:var(--matcha);background:var(--matcha-soft)}
 
 .feedback{
   border-radius:var(--r-sm);padding:.7rem .85rem;font-size:.82rem;line-height:1.5;
@@ -294,64 +323,94 @@ button{cursor:pointer;border:0;background:none}
 .feedback.ok{border-color:var(--matcha);background:var(--matcha-soft)}
 .feedback.no{border-color:var(--shu);background:var(--shu-soft)}
 .feedback .big{font-family:var(--font-mono);font-size:1rem;font-weight:600}
-.feedback .kana{font-family:var(--font-gothic);font-size:1.25rem;vertical-align:-.08em}
-.feedback .tip{display:block;margin-top:.25rem;color:var(--ink-soft);font-size:.75rem}
+.feedback .kana{font-family:var(--font-gothic);font-size:1.3rem;vertical-align:-.1em}
+.feedback .tip{display:block;margin-top:.28rem;color:var(--ink-soft);font-size:.76rem}
+.feedback .tip .src{font-family:var(--font-mincho);font-size:1.1rem;color:var(--shu);vertical-align:-.1em}
 .feedback .tip .kana{font-size:1.05rem}
-
 .next{
   padding:.85rem;border-radius:var(--r-sm);background:var(--ink);color:var(--paper);
   font-weight:600;font-size:.92rem;letter-spacing:.03em;
 }
 
-/* ── writing ────────────────────────────────────────────────────────── */
-.pad-wrap{position:relative;width:100%;aspect-ratio:1;max-width:20rem;margin:0 auto}
-canvas.pad{
-  width:100%;height:100%;display:block;touch-action:none;
-  background:var(--card);border:1.5px solid var(--rule-strong);border-radius:4px;
-  box-shadow:var(--shadow);cursor:crosshair;
+/* ── 五十音圖 ───────────────────────────────────────────────────────── */
+.chart{
+  background:var(--card);border:1.5px solid var(--hair);border-radius:var(--r);
+  padding:.75rem;display:flex;flex-direction:column;gap:.65rem;
 }
-.pad-meta{
-  display:flex;justify-content:space-between;align-items:center;gap:.5rem;
-  font-family:var(--font-mono);font-size:.68rem;letter-spacing:.08em;color:var(--ink-faint);
-  max-width:20rem;margin:0 auto;width:100%;
+.chart-grid{display:grid;gap:3px}
+.cell{
+  border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  position:relative;padding:.28rem .1rem .22rem;gap:.05rem;
+  background:var(--card-2);color:var(--ink);
 }
-.pad-meta .strokes b{color:var(--ink-soft)}
-.pad-meta .strokes b.over{color:var(--shu)}
-.tools{display:flex;gap:.4rem}
-.tool{
-  padding:.35rem .6rem;border-radius:999px;border:1.5px solid var(--hair);
-  font-size:.72rem;color:var(--ink-soft);background:var(--card);
+.cell .kn{font-family:var(--font-gothic);font-size:clamp(.85rem,3.8vw,1.05rem);line-height:1.1}
+.cell .rm{font-family:var(--font-mono);font-size:.52rem;letter-spacing:.02em;opacity:.75;line-height:1}
+.cell.void{background:transparent}
+.cell.lab{
+  background:transparent;color:var(--ink-faint);font-family:var(--font-mono);
+  font-size:.6rem;letter-spacing:.05em;
 }
-.tool:hover{border-color:var(--ai);color:var(--ai)}
-.grade{display:grid;grid-template-columns:1fr 1fr;gap:.55rem}
-.grade button{padding:.85rem;border-radius:var(--r-sm);font-weight:600;font-size:.9rem;border:1.5px solid}
-.grade .again{border-color:var(--shu);color:var(--shu);background:var(--shu-soft)}
-.grade .got{border-color:var(--matcha);color:var(--matcha);background:var(--matcha-soft)}
+.cell.lab.rowlab{font-family:var(--font-gothic);font-size:.72rem}
+.cell.new{color:var(--ink-faint)}
+.cell.due::after{
+  content:"";position:absolute;top:2px;right:2px;width:5px;height:5px;
+  border-radius:50%;background:var(--shu);
+}
+.legend{
+  display:flex;align-items:center;gap:.5rem;font-size:.64rem;color:var(--ink-faint);
+  font-family:var(--font-mono);letter-spacing:.05em;
+}
+.legend .bar{flex:1;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--card-2),var(--ai))}
+.seg{display:flex;border:1.5px solid var(--hair);border-radius:var(--r-sm);overflow:hidden;background:var(--card)}
+.seg button{flex:1;padding:.45rem .3rem;font-size:.78rem;color:var(--ink-soft);border-right:1.5px solid var(--hair)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--ai-soft);color:var(--ai);font-weight:600}
 
-/* ── done ───────────────────────────────────────────────────────────── */
+/* ── 進階／自由練習 ─────────────────────────────────────────────────── */
+details.adv{border-top:1.5px solid var(--rule-strong);padding-top:.8rem}
+details.adv > summary{
+  font-size:.72rem;font-family:var(--font-mono);letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-faint);cursor:pointer;list-style:none;
+}
+details.adv > summary::-webkit-details-marker{display:none}
+details.adv > summary::before{content:"▸ ";display:inline-block;transition:transform .2s}
+details.adv[open] > summary::before{content:"▾ "}
+.adv-body{display:flex;flex-direction:column;gap:.6rem;padding-top:.7rem}
+.chips{display:flex;flex-wrap:wrap;gap:.4rem}
+.chip{
+  display:inline-flex;align-items:center;gap:.4rem;padding:.4rem .68rem;border-radius:999px;
+  border:1.5px solid var(--hair);background:var(--card);font-size:.78rem;color:var(--ink-soft);
+}
+.chip .n{font-family:var(--font-mono);font-size:.66rem;opacity:.7}
+.chip[aria-pressed="true"]{background:var(--ai);border-color:var(--ai);color:var(--paper)}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.mode{
+  text-align:left;padding:.6rem .7rem;border-radius:var(--r-sm);
+  border:1.5px solid var(--hair);background:var(--card);
+}
+.mode .t{font-size:.86rem;font-weight:600;display:block}
+.mode .d{font-size:.68rem;color:var(--ink-soft);line-height:1.4;display:block}
+.mode[aria-pressed="true"]{border-color:var(--ai);background:var(--ai-soft)}
+.mode[aria-pressed="true"] .t{color:var(--ai)}
+
+/* ── 結算 ───────────────────────────────────────────────────────────── */
 .scoreboard{
   background:var(--card);border:1.5px solid var(--hair);border-radius:var(--r);
-  padding:1.1rem;display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;box-shadow:var(--shadow);
+  padding:1.05rem;display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem;box-shadow:var(--shadow);
 }
-.stat{display:flex;flex-direction:column;gap:.15rem;text-align:center}
+.stat{display:flex;flex-direction:column;gap:.12rem;text-align:center}
 .stat b{font-family:var(--font-mono);font-size:1.5rem;font-variant-numeric:tabular-nums;color:var(--ai)}
-.stat span{font-size:.68rem;color:var(--ink-faint);letter-spacing:.06em}
+.stat span{font-size:.66rem;color:var(--ink-faint);letter-spacing:.05em}
 .weak{display:flex;flex-wrap:wrap;gap:.4rem}
 .weak-item{
-  display:inline-flex;align-items:center;gap:.35rem;padding:.35rem .6rem;border-radius:999px;
+  display:inline-flex;align-items:center;gap:.35rem;padding:.32rem .6rem;border-radius:999px;
   border:1.5px solid var(--shu);background:var(--shu-soft);color:var(--shu);font-size:.72rem;
   font-family:var(--font-mono);
 }
 .weak-item .kana{font-family:var(--font-gothic);font-size:1.15rem}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:.55rem}
-.ghost{
-  padding:.85rem;border-radius:var(--r-sm);border:1.5px solid var(--hair);
-  background:var(--card);font-weight:600;font-size:.9rem;color:var(--ink-soft);
-}
-.ghost:hover{border-color:var(--ai);color:var(--ai)}
 
 footer{
-  border-top:1.5px solid var(--rule-strong);margin-top:.5rem;padding-top:.8rem;
+  border-top:1.5px solid var(--rule-strong);margin-top:.4rem;padding-top:.8rem;
   font-size:.68rem;color:var(--ink-faint);line-height:1.7;
 }
 footer button{font-size:.68rem;color:var(--shu);text-decoration:underline;text-underline-offset:3px}
@@ -359,11 +418,11 @@ footer button{font-size:.68rem;color:var(--shu);text-decoration:underline;text-u
 
 <main class="wrap">
 
-<!-- ══ HOME ══════════════════════════════════════════════════════════ -->
+<!-- ══ 首頁 ══════════════════════════════════════════════════════════ -->
 <section id="screen-home" class="screen is-on">
   <header class="masthead">
     <div>
-      <span class="eyebrow">Kana Practice</span>
+      <span class="eyebrow">Kana from zero</span>
       <h1 lang="ja">仮名けいこ</h1>
     </div>
     <div class="masthead-side">
@@ -372,58 +431,20 @@ footer button{font-size:.68rem;color:var(--shu);text-decoration:underline;text-u
     </div>
   </header>
 
-  <div class="hero">
-    <div class="genko"><span lang="ja" id="hero-kana">あ</span></div>
-    <div class="hero-copy">
-      <h2>今日の一字</h2>
-      <p id="hero-note">你最常錯的字會出現在這裡。先寫三遍，再開始。</p>
+  <button class="cta" id="continue-btn">開始第一課<span class="sub" id="continue-sub"></span></button>
+  <button class="ghost" id="review-btn" hidden>今日複習<span class="sub" id="review-sub"></span></button>
+
+  <div class="block">
+    <div class="block-head">
+      <h3>課程</h3>
+      <span class="hint" id="lesson-hint"></span>
     </div>
+    <div id="chapters" style="display:flex;flex-direction:column;gap:.5rem"></div>
   </div>
 
   <div class="block">
     <div class="block-head">
-      <h3>練習範圍</h3>
-      <button class="linkish" id="preset-btn">Duolingo 15 級推薦</button>
-    </div>
-    <div class="chips" id="decks"></div>
-  </div>
-
-  <div class="block">
-    <div class="block-head"><h3>練習方式</h3></div>
-    <div class="modes" id="modes">
-      <button class="mode" data-mode="recog" aria-pressed="true">
-        <span class="t">認字</span><span class="d">看假名 → 選羅馬字</span>
-      </button>
-      <button class="mode" data-mode="type" aria-pressed="false">
-        <span class="t">打字</span><span class="d">看假名 → 打出讀音</span>
-      </button>
-      <button class="mode" data-mode="recall" aria-pressed="false">
-        <span class="t">反查</span><span class="d">看讀音 → 選假名</span>
-      </button>
-      <button class="mode" data-mode="write" aria-pressed="false">
-        <span class="t">手寫</span><span class="d">在格子裡寫出來</span>
-      </button>
-    </div>
-    <div class="seg" id="write-opts" hidden>
-      <button data-trace="1" aria-pressed="true">描摹（有範本）</button>
-      <button data-trace="0" aria-pressed="false">默寫（無範本）</button>
-    </div>
-  </div>
-
-  <div class="block">
-    <div class="block-head"><h3>這一組幾題</h3></div>
-    <div class="seg" id="lens">
-      <button data-len="10" aria-pressed="false">10</button>
-      <button data-len="20" aria-pressed="true">20</button>
-      <button data-len="40" aria-pressed="false">40</button>
-    </div>
-  </div>
-
-  <button class="start" id="start-btn">開始練習<span class="sub" id="start-sub"></span></button>
-
-  <div class="block">
-    <div class="block-head">
-      <h3>掌握度</h3>
+      <h3>五十音圖</h3>
       <span class="hint" id="chart-hint"></span>
     </div>
     <div class="seg" id="chart-script">
@@ -439,16 +460,71 @@ footer button{font-size:.68rem;color:var(--shu);text-decoration:underline;text-u
       <div class="chart-grid" id="chart-grid"></div>
       <div class="legend"><span>NEW</span><i class="bar"></i><span>熟</span></div>
     </div>
-    <p class="note">顏色越深＝記得越牢。右上角有 <b style="color:var(--shu)">紅點</b> 的是今天該複習的字。</p>
+    <p class="note">顏色越深＝記得越牢。右上角有 <b style="color:var(--shu)">紅點</b> 的是今天該複習的字。這張表隨時可以當字卡查。</p>
   </div>
 
+  <details class="adv">
+    <summary>進階：自由練習</summary>
+    <div class="adv-body">
+      <p class="note">已經有基礎、想直接大量刷題時用這裡。範圍和題型自己選，不跟著課程走。</p>
+      <div class="chips" id="decks"></div>
+      <div class="modes" id="modes">
+        <button class="mode" data-mode="recog" aria-pressed="true"><span class="t">認字</span><span class="d">看假名 → 選讀音</span></button>
+        <button class="mode" data-mode="type" aria-pressed="false"><span class="t">打字</span><span class="d">看假名 → 打讀音</span></button>
+        <button class="mode" data-mode="recall" aria-pressed="false"><span class="t">反查</span><span class="d">看讀音 → 選假名</span></button>
+        <button class="mode" data-mode="write" aria-pressed="false"><span class="t">手寫</span><span class="d">看讀音 → 默寫</span></button>
+      </div>
+      <div class="seg" id="lens">
+        <button data-len="10" aria-pressed="false">10 題</button>
+        <button data-len="20" aria-pressed="true">20 題</button>
+        <button data-len="40" aria-pressed="false">40 題</button>
+      </div>
+      <button class="ghost" id="free-btn">開始自由練習<span class="sub" id="free-sub"></span></button>
+    </div>
+  </details>
+
   <footer>
-    進度只存在這台裝置的瀏覽器裡，不會上傳。<br>
+    進度只存在這台裝置的瀏覽器裡，不會上傳，也不需要帳號。<br>
     <button id="reset-btn">清除所有學習紀錄</button>
   </footer>
 </section>
 
-<!-- ══ DRILL ═════════════════════════════════════════════════════════ -->
+<!-- ══ 學習卡 ════════════════════════════════════════════════════════ -->
+<section id="screen-learn" class="screen">
+  <div class="learn-top">
+    <button class="quit" id="learn-quit">← 離開</button>
+    <span class="ttl" id="learn-title"></span>
+    <span class="dots" id="learn-dots"></span>
+  </div>
+
+  <div class="learn">
+    <div class="big">
+      <span class="kana-lg" lang="ja" id="learn-kana">あ</span>
+      <span class="say">
+        <span class="rom-lg" id="learn-rom">a</span>
+        <button class="sound" id="learn-sound" hidden>🔊 聽發音</button>
+      </span>
+    </div>
+    <div class="lore" id="learn-lore"></div>
+  </div>
+
+  <div class="pad-wrap"><canvas class="pad" id="pad-learn"></canvas></div>
+  <div class="pad-meta">
+    <span class="strokes" id="learn-strokes"></span>
+    <span class="tools">
+      <button class="tool" id="learn-undo">復原一筆</button>
+      <button class="tool" id="learn-clear">清空</button>
+    </span>
+  </div>
+  <p class="note" style="text-align:center">照著淡色範本描一遍，手會幫你記住字形。</p>
+
+  <div class="learn-nav">
+    <button class="ghost" id="learn-prev">← 上一個</button>
+    <button class="cta" id="learn-next">下一個 →</button>
+  </div>
+</section>
+
+<!-- ══ 測驗 ══════════════════════════════════════════════════════════ -->
 <section id="screen-drill" class="screen">
   <div class="drillbar">
     <button class="quit" id="quit-btn">← 結束</button>
@@ -457,7 +533,7 @@ footer button{font-size:.68rem;color:var(--shu);text-decoration:underline;text-u
   </div>
 
   <div class="stage" id="stage">
-    <span class="prompt-label" id="prompt-label">這個字怎麼念</span>
+    <span class="prompt-label" id="prompt-label"></span>
     <div id="prompt-body"></div>
     <span class="prompt-sub" id="prompt-sub"></span>
     <span class="stamp" id="stamp"></span>
@@ -477,26 +553,31 @@ footer button{font-size:.68rem;color:var(--shu);text-decoration:underline;text-u
 
   <div class="answers" id="answers" hidden></div>
 
-  <div class="typerow" id="typerow" hidden>
+  <div class="typerow" id="typerow" hidden style="display:none;gap:.5rem">
     <input id="type-input" type="text" inputmode="latin" autocomplete="off"
-           autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="輸入羅馬字…">
-    <button id="type-submit">送出</button>
+           autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="輸入羅馬字…"
+           style="flex:1;padding:.8rem .85rem;border-radius:9px;border:1.5px solid var(--hair);background:var(--card);font-family:var(--font-mono);font-size:1.15rem">
+    <button id="type-submit" style="padding:0 1.1rem;border-radius:9px;background:var(--ai);color:var(--paper);font-weight:600;font-size:.9rem">送出</button>
   </div>
 
   <div class="grade" id="grade" hidden>
-    <button class="again" data-g="0">再練一次</button>
+    <button class="again" data-g="0">還不熟</button>
     <button class="got" data-g="1">寫對了</button>
+  </div>
+
+  <div class="helprow" id="helprow" hidden>
+    <button class="help-btn" id="help-btn">想不起來，給我提示</button>
   </div>
 
   <div class="feedback" id="feedback"></div>
   <button class="next" id="next-btn" hidden>下一題</button>
 </section>
 
-<!-- ══ DONE ══════════════════════════════════════════════════════════ -->
+<!-- ══ 結算 ══════════════════════════════════════════════════════════ -->
 <section id="screen-done" class="screen">
   <header class="masthead">
     <div>
-      <span class="eyebrow">Session Complete</span>
+      <span class="eyebrow" id="done-eyebrow">Lesson complete</span>
       <h1 lang="ja">おつかれさま</h1>
     </div>
   </header>
@@ -506,13 +587,12 @@ footer button{font-size:.68rem;color:var(--shu);text-decoration:underline;text-u
     <div class="stat"><b id="s-time">—</b><span>用時</span></div>
   </div>
   <div class="block" id="weak-block">
-    <div class="block-head"><h3>下次先看這幾個</h3></div>
+    <div class="block-head"><h3>這幾個還要多看</h3></div>
     <div class="weak" id="weak-list"></div>
   </div>
-  <div class="row2">
-    <button class="ghost" id="home-btn">回首頁</button>
-    <button class="start" id="again-btn" style="margin:0">再來一組</button>
-  </div>
+  <button class="cta" id="done-next">下一課</button>
+  <button class="ghost" id="done-redo">重做這一課</button>
+  <button class="ghost" id="home-btn">回首頁</button>
 </section>
 
 </main>
@@ -520,7 +600,7 @@ footer button{font-size:.68rem;color:var(--shu);text-decoration:underline;text-u
 <script>
 "use strict";
 
-/* ═══ 資料：五十音 ══════════════════════════════════════════════════════
+/* ═══ 五十音資料 ═══════════════════════════════════════════════════════
    [平假名, 片假名, 羅馬字, 平假名筆畫, 片假名筆畫]                        */
 const BASE_ROWS = [
   ['あ行',[['あ','ア','a',3,2],['い','イ','i',2,2],['う','ウ','u',2,3],['え','エ','e',2,3],['お','オ','o',3,3]]],
@@ -556,7 +636,106 @@ const YOON_ROWS = [
   ['ぴゃ行',[['ぴゃ','ピャ','pya'],['ぴゅ','ピュ','pyu'],['ぴょ','ピョ','pyo']]],
 ];
 
-/* 打字時可接受的其他拼法（訓令式等） */
+/* ═══ 字源與聯想 ═══════════════════════════════════════════════════════
+   平假名是漢字的草書簡化，片假名是取漢字的偏旁。
+   對中文母語者來說，這是最省力的記憶路徑。
+   [漢字來源, 字形聯想]                                                   */
+const LORE = {
+  'あ':['安','「安」的草書。一個十字，右下打個圈'],
+  'い':['以','「以」的左半。兩撇，長的在左、短的在右'],
+  'う':['宇','「宇」的上半（宀）。一點，加一個彎鉤'],
+  'え':['衣','「衣」的草書。一點，下面像個站著的人'],
+  'お':['於','「於」的左半（方）。比 あ 多一撇在右上'],
+  'か':['加','「加」的左半，就是「力」，右上再加一點'],
+  'き':['幾','「幾」的草書。兩橫加一個彎，像鑰匙 key'],
+  'く':['久','「久」的起筆。一筆到底，像鳥嘴'],
+  'け':['計','「計」的左半（言）簡化。一豎在左，右邊像 十'],
+  'こ':['己','「己」的上半。兩橫，像上下兩片嘴唇'],
+  'さ':['左','「左」的草書。比 き 少一橫'],
+  'し':['之','「之」的最後一筆。一鉤到底，最好寫的一個'],
+  'す':['寸','「寸」的草書。一橫，下面一個圈再垂下'],
+  'せ':['世','「世」的草書，字形幾乎沒變'],
+  'そ':['曽','「曽」的草書。像閃電，或像數字 7 加一撇'],
+  'た':['太','「太」的草書。左邊像 た，右邊像 こ'],
+  'ち':['知','「知」的左半。像數字 5 左右翻過來'],
+  'つ':['川','「川」的草書。一個橫躺的彎鉤'],
+  'て':['天','「天」的草書。一橫往左下拉出一鉤'],
+  'と':['止','「止」的草書。一豎，中間點一下'],
+  'な':['奈','「奈」的草書。左邊像 た，右下打個圈'],
+  'に':['仁','「仁」的草書。左邊一豎，右邊兩橫'],
+  'ぬ':['奴','「奴」的草書。の 加上一條打結的尾巴'],
+  'ね':['祢','「祢」的草書。一豎，加 の，尾巴打圈'],
+  'の':['乃','「乃」的草書。一筆畫的圈，剛好像 no 的 o'],
+  'は':['波','「波」的草書。左邊一豎，右邊像 に'],
+  'ひ':['比','「比」的右半。一筆，像個微笑的嘴'],
+  'ふ':['不','「不」的草書。四筆：一點、一彎、左右各一點'],
+  'へ':['部','「部」的右半（阝）。就是一個屋頂形，一筆'],
+  'ほ':['保','「保」的草書。は 的右邊多加一橫'],
+  'ま':['末','「末」的草書。兩橫，下面打個圈'],
+  'み':['美','「美」的草書。像數字 3，再加一撇'],
+  'む':['武','「武」的草書。牛叫 moo，右上還有一點像牛角'],
+  'め':['女','「女」的草書。ぬ 少掉尾巴的結'],
+  'も':['毛','「毛」的草書。し 的身上加兩橫'],
+  'や':['也','「也」的草書。一點，加一個彎'],
+  'ゆ':['由','「由」的草書。像一條魚，中間穿過一筆'],
+  'よ':['与','「与」的草書。一橫，下面一豎打個圈'],
+  'ら':['良','「良」的草書。一點，下面一個彎'],
+  'り':['利','「利」的右半（刂）。兩筆，左短右長'],
+  'る':['留','「留」的草書。ろ 的尾巴多打一個圈'],
+  'れ':['礼','「礼」的草書。ね 的尾巴不打圈，往外甩出去'],
+  'ろ':['呂','「呂」的草書。る 不打圈'],
+  'わ':['和','「和」的草書。れ 的尾巴向內收回來'],
+  'を':['遠','「遠」的草書。只當助詞用，發音同 お'],
+  'ん':['无','「无」的草書。剛好像英文手寫的 n'],
+  'ア':['阿','取「阿」的左半（阝）'],
+  'イ':['伊','取「伊」的左半（亻），就是人字旁'],
+  'ウ':['宇','取「宇」的上半（宀），就是寶蓋頭'],
+  'エ':['江','取「江」的右半，就是「工」'],
+  'オ':['於','取「於」的左半（方）'],
+  'カ':['加','取「加」的左半，就是「力」'],
+  'キ':['幾','取「幾」的一部分。像「牛」少一撇'],
+  'ク':['久','取「久」的起筆。像一個開口向左的角'],
+  'ケ':['介','取「介」的一部分'],
+  'コ':['己','取「己」的上半。一個開口向右的方框'],
+  'サ':['散','取「散」的左上，像「艹」中間穿一豎'],
+  'シ':['之','取「之」。兩點在左側，尾巴由下往上挑'],
+  'ス':['須','取「須」的一部分。像「又」'],
+  'セ':['世','取「世」的一部分'],
+  'ソ':['曽','取「曽」的上半。一點在上，尾巴由上往下撇'],
+  'タ':['多','取「多」的一半。ク 再加一撇'],
+  'チ':['千','取「千」，就是「千」'],
+  'ツ':['川','取「川」。三點在上，尾巴由下往上挑'],
+  'テ':['天','取「天」的一部分。兩橫加一撇'],
+  'ト':['止','取「止」的一部分。一豎，右邊點一下'],
+  'ナ':['奈','取「奈」的上半。就是「十」歪一撇'],
+  'ニ':['二','取「二」，就是「二」。ni＝two，最好記的一個'],
+  'ヌ':['奴','取「奴」的右半。ス 再加一撇'],
+  'ネ':['祢','取「祢」的一部分，就是「示」字旁'],
+  'ノ':['乃','取「乃」的第一筆。就是一撇'],
+  'ハ':['八','取「八」，就是「八」'],
+  'ヒ':['比','取「比」的右半'],
+  'フ':['不','取「不」的一部分。一筆的勾'],
+  'ヘ':['部','取「部」的右半。跟平假名 へ 幾乎一樣'],
+  'ホ':['保','取「保」的下半。像「木」'],
+  'マ':['万','取「万」的草書'],
+  'ミ':['三','取「三」，就是「三」，剛好三筆'],
+  'ム':['牟','取「牟」的上半'],
+  'メ':['女','取「女」的一部分。像個叉'],
+  'モ':['毛','取「毛」。跟平假名 も 同源，長得也像'],
+  'ヤ':['也','取「也」的一部分'],
+  'ユ':['由','取「由」的下半'],
+  'ヨ':['与','取「与」的一部分。三橫，像 E 反過來'],
+  'ラ':['良','取「良」的上半'],
+  'リ':['利','取「利」的右半（刂）。跟平假名 り 幾乎一樣'],
+  'ル':['流','取「流」的下半'],
+  'レ':['礼','取「礼」的右半。一筆的勾'],
+  'ロ':['呂','取「呂」的上半，就是「口」'],
+  'ワ':['和','取「和」的右半（口）變形。比 ク 多一橫'],
+  'ヲ':['乎','取「乎」的一部分。現代幾乎不用，助詞才寫'],
+  'ン':['爾','取「爾」的一部分。一點在上，尾巴由下往上挑'],
+};
+
+/* 打字時可接受的其他拼法 */
 const ALT = {
   shi:['si'], chi:['ti'], tsu:['tu'], fu:['hu'], ji:['zi'], wo:['o'], n:['nn'],
   sha:['sya'], shu:['syu'], sho:['syo'], cha:['tya'], chu:['tyu'], cho:['tyo'],
@@ -564,7 +743,7 @@ const ALT = {
   'ji (di)':['ji','di','zi'], 'zu (du)':['zu','du'],
 };
 
-/* 常見混淆組 —— 出選項時會優先拿這些來當干擾項 */
+/* 常見混淆組 —— 出干擾選項時優先從這裡挑 */
 const CONFUSE = [
   ['あ','お','ぬ','め'],['い','り'],['き','さ','ち'],['け','は','ほ'],['ま','ほ'],
   ['れ','わ','ね'],['る','ろ'],['つ','う','ら'],['す','む'],['に','こ'],
@@ -572,22 +751,12 @@ const CONFUSE = [
   ['シ','ツ','ソ','ン'],['ノ','ソ','ン','リ'],['ク','ワ','ケ','タ'],['ス','ヌ','マ'],
   ['ウ','ワ','フ','ラ'],['チ','テ','ナ'],['ナ','メ','ヌ'],['コ','ユ','ヨ','エ'],
   ['マ','ア','ム'],['ミ','シ'],['ル','レ','ハ'],['ヲ','フ','ラ'],['セ','ヤ','サ'],
-  ['オ','ホ'],['シ','ミ'],['ヘ','べ'],
+  ['オ','ホ'],['ミ','シ'],['ヘ','ベ'],
 ];
 
 /* ═══ 建索引 ═══════════════════════════════════════════════════════════ */
-const DECKS = [
-  {id:'h-base', script:'h', set:'base', label:'ひらがな 清音'},
-  {id:'h-daku', script:'h', set:'daku', label:'ひらがな 濁音'},
-  {id:'h-yoon', script:'h', set:'yoon', label:'ひらがな 拗音'},
-  {id:'k-base', script:'k', set:'base', label:'カタカナ 清音'},
-  {id:'k-daku', script:'k', set:'daku', label:'カタカナ 濁音'},
-  {id:'k-yoon', script:'k', set:'yoon', label:'カタカナ 拗音'},
-];
 const ROWS = {base:BASE_ROWS, daku:DAKU_ROWS, yoon:YOON_ROWS};
-const ITEMS = [];      // 全部題目
-const BY_ID = {};
-const BY_KANA = {};
+const ITEMS = [], BY_ID = {}, BY_KANA = {};
 
 for (const set of ['base','daku','yoon']) {
   ROWS[set].forEach((row, ri) => {
@@ -596,46 +765,81 @@ for (const set of ['base','daku','yoon']) {
       const [hira, kata, romaji, hs, ks] = cell;
       for (const script of ['h','k']) {
         const kana = script === 'h' ? hira : kata;
-        const item = {
+        const it = {
           id: script + ':' + kana,
           kana, romaji, script, set,
           deck: script + '-' + set,
-          row: ri, col: ci,
-          rowLabel: row[0],
+          row: ri, col: ci, rowLabel: row[0],
           strokes: script === 'h' ? hs : ks,
+          lore: LORE[kana] || null,
           accept: [romaji.replace(/\s*\(.+\)/,'')].concat(ALT[romaji] || []),
         };
-        item.accept = [...new Set(item.accept.map(s => s.toLowerCase()))];
-        ITEMS.push(item);
-        BY_ID[item.id] = item;
-        BY_KANA[kana] = item;
+        it.accept = [...new Set(it.accept.map(s => s.toLowerCase()))];
+        ITEMS.push(it); BY_ID[it.id] = it; BY_KANA[kana] = it;
       }
     });
   });
 }
+const CONFUSE_MAP = {};
+for (const grp of CONFUSE) for (const k of grp) {
+  (CONFUSE_MAP[k] = CONFUSE_MAP[k] || new Set());
+  grp.forEach(o => { if (o !== k) CONFUSE_MAP[k].add(o); });
+}
+
+/* ═══ 課程 ═════════════════════════════════════════════════════════════ */
+const CHAPTERS = [];
+function buildLessons(){
+  const mk = (id, script, set, rowIdx, note) => {
+    const chars = ROWS[set][rowIdx][1].filter(Boolean)
+      .map(c => BY_KANA[script === 'h' ? c[0] : c[1]]);
+    return {id, chars, note, label: ROWS[set][rowIdx][0]};
+  };
+  for (const [script, name] of [['h','平假名'],['k','片假名']]) {
+    const lessons = BASE_ROWS.map((r, i) => mk(script + 'b' + i, script, 'base', i,
+      i === 0 && script === 'h'
+        ? '平假名是漢字的草書寫成的。每個字下面都會告訴你它從哪個漢字來——用字源記，比硬背快很多。'
+        : (i === 0 && script === 'k'
+          ? '片假名是取漢字的偏旁。ニ 來自「二」、ハ 來自「八」、ロ 來自「口」——你已經認得這些漢字了。'
+          : null)));
+    CHAPTERS.push({title:name + '清音', sub:'46 字', lessons});
+  }
+  for (const [script, name] of [['h','平假名'],['k','片假名']]) {
+    const lessons = DAKU_ROWS.map((r, i) => mk(script + 'd' + i, script, 'daku', i,
+      i === 0 ? '濁音就是在清音右上加兩點「゛」，か→が、さ→ざ。半濁音是加小圈「゜」，只有は行有：は→ぱ。字形完全不用重學。' : null));
+    CHAPTERS.push({title:name + '濁音・半濁音', sub:'25 字', lessons});
+  }
+  for (const [script, name] of [['h','平假名'],['k','片假名']]) {
+    const groups = [[0,1,2],[3,4,5],[6,7,8],[9,10]];
+    const lessons = groups.map((g, i) => ({
+      id: script + 'y' + i,
+      label: ROWS.yoon[g[0]][0] + '⋯',
+      chars: g.flatMap(ri => YOON_ROWS[ri][1].map(c => BY_KANA[script === 'h' ? c[0] : c[1]])),
+      note: i === 0 ? '拗音＝い段的字（き・し・ち⋯）後面接一個小的ゃ・ゅ・ょ，兩個字拼成一個音。きゃ 唸 kya，不是 ki-ya。' : null,
+    }));
+    CHAPTERS.push({title:name + '拗音', sub:'33 字', lessons});
+  }
+}
+buildLessons();
+const ALL_LESSONS = CHAPTERS.flatMap(c => c.lessons);
+const LESSON_BY_ID = {};
+ALL_LESSONS.forEach(l => LESSON_BY_ID[l.id] = l);
+
+const DECKS = [
+  {id:'h-base', label:'ひらがな 清音'}, {id:'h-daku', label:'ひらがな 濁音'}, {id:'h-yoon', label:'ひらがな 拗音'},
+  {id:'k-base', label:'カタカナ 清音'}, {id:'k-daku', label:'カタカナ 濁音'}, {id:'k-yoon', label:'カタカナ 拗音'},
+];
 const DECK_SIZE = {};
 DECKS.forEach(d => DECK_SIZE[d.id] = ITEMS.filter(i => i.deck === d.id).length);
 
-const CONFUSE_MAP = {};
-for (const grp of CONFUSE) {
-  for (const k of grp) {
-    (CONFUSE_MAP[k] = CONFUSE_MAP[k] || new Set());
-    grp.forEach(o => { if (o !== k) CONFUSE_MAP[k].add(o); });
-  }
-}
-
-/* ═══ 儲存 ═════════════════════════════════════════════════════════════ */
-const KEY = 'kana-keiko-v1';
+/* ═══ 儲存與間隔複習 ═══════════════════════════════════════════════════ */
+const KEY = 'kana-keiko-v2';
 const MIN = 60000, DAY = 86400000;
-const INTERVALS = [MIN, 10*MIN, DAY, 2*DAY, 5*DAY, 12*DAY, 30*DAY]; // lvl 0..6
+const INTERVALS = [MIN, 10*MIN, DAY, 2*DAY, 5*DAY, 12*DAY, 30*DAY];
 const MAXLVL = INTERVALS.length - 1;
-
 const DEFAULT_STATE = {
-  cards: {},                         // id -> {l:level, d:dueTs, s:seen, w:wrong}
-  decks: ['h-base','k-base'],
-  mode: 'recog', trace: 1, len: 20,
-  streak: 0, last: '',
-  chartScript: 'h', chartSet: 'base',
+  cards:{}, done:[], streak:0, last:'',
+  chartScript:'h', chartSet:'base',
+  decks:['h-base'], mode:'recog', len:20,
 };
 let S = load();
 
@@ -646,137 +850,256 @@ function load(){
   } catch(e){}
   return JSON.parse(JSON.stringify(DEFAULT_STATE));
 }
-function save(){
-  try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){}
-}
-function card(id){
-  return S.cards[id] || (S.cards[id] = {l:0, d:0, s:0, w:0});
-}
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} }
+function card(id){ return S.cards[id] || (S.cards[id] = {l:0, d:0, s:0, w:0}); }
 function grade(id, ok){
-  const c = card(id);
-  c.s++;
+  const c = card(id); c.s++;
   if (ok) c.l = Math.min(MAXLVL, c.l + 1);
   else { c.l = Math.max(0, c.l - 2); c.w++; }
   c.d = Date.now() + INTERVALS[c.l];
   save();
 }
-function todayKey(){
-  const d = new Date();
-  return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
-}
+function dayKey(t){ const d = new Date(t); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
 function touchStreak(){
-  const t = todayKey();
+  const t = dayKey(Date.now());
   if (S.last === t) return;
-  const y = new Date(Date.now() - DAY);
-  const yk = y.getFullYear()+'-'+(y.getMonth()+1)+'-'+y.getDate();
-  S.streak = (S.last === yk) ? S.streak + 1 : 1;
-  S.last = t;
-  save();
+  S.streak = (S.last === dayKey(Date.now() - DAY)) ? S.streak + 1 : 1;
+  S.last = t; save();
 }
+function learnedItems(){ return ITEMS.filter(i => S.cards[i.id]); }
+function dueItems(){ const n = Date.now(); return learnedItems().filter(i => S.cards[i.id].d <= n); }
+function nextLesson(){ return ALL_LESSONS.find(l => !S.done.includes(l.id)) || null; }
 
 /* ═══ 小工具 ═══════════════════════════════════════════════════════════ */
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const shuffle = a => { for (let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[a[i],a[j]]=[a[j],a[i]];} return a; };
-function show(id){
-  $$('.screen').forEach(s => s.classList.toggle('is-on', s.id === id));
-  window.scrollTo(0,0);
+function show(id){ $$('.screen').forEach(s => s.classList.toggle('is-on', s.id === id)); window.scrollTo(0,0); }
+function esc(s){ return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function scriptName(s){ return s === 'h' ? '平假名' : '片假名'; }
+
+/* 發音（有日文語音才顯示按鈕） */
+let jaVoice = null;
+function findVoice(){
+  if (!('speechSynthesis' in window)) return;
+  const v = speechSynthesis.getVoices().find(v => /^ja/i.test(v.lang));
+  if (v) { jaVoice = v; $$('.sound').forEach(b => b.hidden = false); }
 }
-function pool(){ return ITEMS.filter(i => S.decks.includes(i.deck)); }
+if ('speechSynthesis' in window) {
+  findVoice();
+  speechSynthesis.onvoiceschanged = findVoice;
+}
+function speak(text){
+  if (!jaVoice) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.voice = jaVoice; u.lang = jaVoice.lang; u.rate = .75;
+    speechSynthesis.speak(u);
+  } catch(e){}
+}
+
+/* ═══ 手寫格 ═══════════════════════════════════════════════════════════ */
+function makePad(canvas, infoEl){
+  const ctx = canvas.getContext('2d');
+  let strokes = [], drawing = null, item = null, trace = true, revealed = false, dpr = 1;
+
+  function sizeIt(){
+    const r = canvas.getBoundingClientRect();
+    dpr = Math.min(window.devicePixelRatio || 1, 3);
+    canvas.width = Math.max(1, Math.round(r.width * dpr));
+    canvas.height = Math.max(1, Math.round(r.height * dpr));
+  }
+  const cv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+  function draw(){
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0,0,w,h);
+    ctx.save();
+    ctx.strokeStyle = cv('--rule-strong') || 'rgba(43,74,143,.3)';
+    ctx.lineWidth = 1.5 * dpr;
+    ctx.setLineDash([6*dpr, 6*dpr]);
+    ctx.beginPath();
+    ctx.moveTo(w/2,0); ctx.lineTo(w/2,h);
+    ctx.moveTo(0,h/2); ctx.lineTo(w,h/2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = .3;
+    ctx.beginPath();
+    ctx.moveTo(0,0); ctx.lineTo(w,h); ctx.moveTo(w,0); ctx.lineTo(0,h);
+    ctx.stroke();
+    ctx.restore();
+
+    if (item && (trace || revealed)) {
+      ctx.save();
+      const asAnswer = revealed && !trace;
+      ctx.fillStyle = asAnswer ? (cv('--shu') || '#C8412A') : (cv('--ink') || '#191D26');
+      ctx.globalAlpha = asAnswer ? .32 : .15;
+      const size = h * (item.kana.length > 1 ? 0.56 : 0.74);
+      ctx.font = size + 'px ' + (cv('--font-gothic') || 'sans-serif');
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(item.kana, w/2, h/2 + size*0.04);
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.strokeStyle = cv('--ink') || '#191D26';
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.lineWidth = 7 * dpr; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (const st of strokes) {
+      if (st.length === 1) { ctx.beginPath(); ctx.arc(st[0].x, st[0].y, 3.5*dpr, 0, 7); ctx.fill(); continue; }
+      ctx.beginPath(); ctx.moveTo(st[0].x, st[0].y);
+      for (let i = 1; i < st.length; i++) ctx.lineTo(st[i].x, st[i].y);
+      ctx.stroke();
+    }
+    ctx.restore();
+    info();
+  }
+  function info(){
+    if (!infoEl || !item) return;
+    if (!item.strokes) { infoEl.textContent = '已寫 ' + strokes.length + ' 筆'; return; }
+    const over = strokes.length > item.strokes;
+    infoEl.innerHTML = '筆畫 <b class="' + (over ? 'over' : '') + '">' + strokes.length + '</b> / ' + item.strokes;
+  }
+  const pos = e => {
+    const r = canvas.getBoundingClientRect();
+    return {x:(e.clientX - r.left) * dpr, y:(e.clientY - r.top) * dpr};
+  };
+  canvas.addEventListener('pointerdown', e => {
+    if (!item) return;
+    e.preventDefault();
+    try { canvas.setPointerCapture(e.pointerId); } catch(_){}
+    drawing = [pos(e)]; strokes.push(drawing); draw();
+  });
+  canvas.addEventListener('pointermove', e => { if (!drawing) return; e.preventDefault(); drawing.push(pos(e)); draw(); });
+  const end = () => { drawing = null; };
+  canvas.addEventListener('pointerup', end);
+  canvas.addEventListener('pointercancel', end);
+  canvas.addEventListener('lostpointercapture', end);
+  window.addEventListener('resize', () => {
+    if (!canvas.offsetParent) return;
+    const rel = strokes.map(s => s.map(p => ({x:p.x/canvas.width, y:p.y/canvas.height})));
+    sizeIt();
+    strokes = rel.map(s => s.map(p => ({x:p.x*canvas.width, y:p.y*canvas.height})));
+    draw();
+  });
+
+  return {
+    set(it, tr){
+      item = it; trace = tr !== false; revealed = false; strokes = [];
+      requestAnimationFrame(() => { sizeIt(); draw(); });
+    },
+    undo(){ strokes.pop(); draw(); },
+    clear(){ strokes = []; draw(); },
+    peek(){ revealed = true; draw(); },
+    redraw(){ sizeIt(); draw(); },
+  };
+}
+const learnPad = makePad($('#pad-learn'), $('#learn-strokes'));
+const drillPad = makePad($('#pad'), $('#stroke-info'));
+$('#learn-undo').addEventListener('click', () => learnPad.undo());
+$('#learn-clear').addEventListener('click', () => learnPad.clear());
+$('#undo-btn').addEventListener('click', () => drillPad.undo());
+$('#clear-btn').addEventListener('click', () => drillPad.clear());
+$('#peek-btn').addEventListener('click', () => drillPad.peek());
 
 /* ═══ 首頁 ═════════════════════════════════════════════════════════════ */
-function renderDecks(){
-  $('#decks').innerHTML = DECKS.map(d =>
-    `<button class="chip" data-deck="${d.id}" aria-pressed="${S.decks.includes(d.id)}">
-       <span lang="ja">${d.label}</span><span class="n">${DECK_SIZE[d.id]}</span>
-     </button>`).join('');
+function renderHome(){
+  const nl = nextLesson();
+  const due = dueItems().length;
+  const cb = $('#continue-btn');
+  if (nl) {
+    const idx = ALL_LESSONS.indexOf(nl) + 1;
+    cb.innerHTML = (S.done.length ? '繼續學習' : '開始第一課')
+      + '<span class="sub">第 ' + idx + ' 課 · ' + nl.chars.map(c => c.kana).join(' ') + '</span>';
+    cb.disabled = false;
+  } else {
+    cb.innerHTML = '全部課程都學完了<span class="sub">用下面的複習和自由練習保持手感</span>';
+    cb.disabled = true;
+  }
+  const rb = $('#review-btn');
+  rb.hidden = due === 0;
+  rb.innerHTML = '今日複習<span class="sub">' + due + ' 個字到期了</span>';
+
+  $('#lesson-hint').textContent = S.done.length + ' / ' + ALL_LESSONS.length + ' 課完成';
+  $('#streak-n').textContent = S.streak;
+  renderChapters();
+  renderChart();
+  renderDecks();
+  renderFreeSub();
 }
-function renderStart(){
-  const p = pool();
-  const due = p.filter(i => { const c = S.cards[i.id]; return c && c.d <= Date.now(); }).length;
-  const fresh = p.filter(i => !S.cards[i.id]).length;
-  const btn = $('#start-btn');
-  btn.disabled = p.length === 0;
-  $('#start-sub').textContent = p.length === 0
-    ? '請先選一個練習範圍'
-    : `${due} 個待複習 · ${fresh} 個沒學過 · 共 ${p.length} 字`;
+
+function renderChapters(){
+  const nl = nextLesson();
+  const openIdx = nl ? CHAPTERS.findIndex(c => c.lessons.includes(nl)) : 0;
+  $('#chapters').innerHTML = CHAPTERS.map((ch, ci) => {
+    const doneN = ch.lessons.filter(l => S.done.includes(l.id)).length;
+    const rows = ch.lessons.map(l => {
+      const isDone = S.done.includes(l.id);
+      const isNext = nl && nl.id === l.id;
+      return '<button class="lesson' + (isDone ? ' done' : '') + (isNext ? ' next' : '') + '" data-lesson="' + l.id + '">'
+        + '<span class="dot">' + (isDone ? '✓' : (isNext ? '▸' : '')) + '</span>'
+        + '<span class="kanas" lang="ja">' + l.chars.map(c => c.kana).join(' ') + '</span>'
+        + '<span class="rom">' + l.chars.length + ' 字</span></button>';
+    }).join('');
+    return '<div class="chapter' + (ci === openIdx ? ' open' : '') + '" data-ch="' + ci + '">'
+      + '<button class="chapter-head"><span class="ttl">' + ch.title + '</span>'
+      + '<span class="cnt">' + doneN + '/' + ch.lessons.length + '</span>'
+      + '<span class="caret">▸</span></button>'
+      + '<div class="chapter-body">' + rows + '</div></div>';
+  }).join('');
 }
-function renderHero(){
-  const p = pool();
-  if (!p.length) return;
-  const scored = p.map(i => {
-    const c = S.cards[i.id];
-    if (!c) return {i, s: 2};                       // 沒學過
-    return {i, s: c.w * 3 + (MAXLVL - c.l) + (c.d <= Date.now() ? 2 : 0)};
-  }).sort((a,b) => b.s - a.s);
-  const top = scored.slice(0, 6);
-  const pick = top[(Math.random()*top.length)|0].i;
-  $('#hero-kana').textContent = pick.kana;
-  const c = S.cards[pick.id];
-  $('#hero-note').innerHTML = c
-    ? `<span class="romaji">${pick.romaji}</span> — 練過 ${c.s} 次、錯 ${c.w} 次。先寫三遍再開始。`
-    : `<span class="romaji">${pick.romaji}</span> — 還沒練過的字。先寫三遍再開始。`;
-}
-function renderStreak(){ $('#streak-n').textContent = S.streak; }
 
 function renderChart(){
   const sc = S.chartScript, set = S.chartSet;
   const rows = ROWS[set];
   const heads = set === 'yoon' ? ['ya','yu','yo'] : ['a','i','u','e','o'];
   const cols = heads.length;
-  $('#chart-grid').style.gridTemplateColumns = `1.4rem repeat(${cols},1fr)`;
-  let html = '<div class="cell lab"></div>'
-    + heads.map(h => `<div class="cell lab">${h}</div>`).join('');
+  $('#chart-grid').style.gridTemplateColumns = '1.3rem repeat(' + cols + ',1fr)';
+  let html = '<div class="cell lab"></div>' + heads.map(h => '<div class="cell lab">' + h + '</div>').join('');
   let done = 0, total = 0;
   for (const [, cells] of rows) {
     const first = cells.find(Boolean);
-    const label = (sc === 'h' ? first[0] : first[1]).charAt(0);
-    html += `<div class="cell lab rowlab" lang="ja">${label}</div>`;
+    html += '<div class="cell lab rowlab" lang="ja">' + (sc === 'h' ? first[0] : first[1]).charAt(0) + '</div>';
     for (let ci = 0; ci < cols; ci++) {
       const cell = cells[ci];
       if (!cell) { html += '<div class="cell void"></div>'; continue; }
-      const kana = sc === 'h' ? cell[0] : cell[1];
-      const it = BY_KANA[kana];
+      const it = BY_KANA[sc === 'h' ? cell[0] : cell[1]];
       const c = S.cards[it.id];
       const lvl = c ? c.l : 0;
       const m = Math.round(lvl / MAXLVL * 100);
       total++; if (lvl >= 4) done++;
-      const due = c && c.d <= Date.now();
-      html += `<div class="cell${due ? ' due' : ''}" data-m="${lvl}" lang="ja" title="${it.romaji}"
-                 style="background:color-mix(in srgb, var(--ai) ${m}%, var(--card-2));${m>55?'color:#fff':''}">${kana}</div>`;
+      html += '<div class="cell' + (c ? '' : ' new') + (c && c.d <= Date.now() ? ' due' : '') + '"'
+        + ' style="background:color-mix(in srgb, var(--ai) ' + m + '%, var(--card-2));' + (m > 55 ? 'color:var(--paper);' : '') + '">'
+        + '<span class="kn" lang="ja">' + it.kana + '</span>'
+        + '<span class="rm">' + esc(it.romaji.replace(/\s*\(.+\)/,'')) + '</span></div>';
     }
   }
   $('#chart-grid').innerHTML = html;
-  $('#chart-hint').textContent = `${done} / ${total} 已熟`;
+  $('#chart-hint').textContent = done + ' / ' + total + ' 已熟';
 }
-function renderHome(){ renderDecks(); renderStart(); renderHero(); renderStreak(); renderChart(); }
 
-$('#decks').addEventListener('click', e => {
-  const b = e.target.closest('[data-deck]'); if (!b) return;
-  const id = b.dataset.deck;
-  S.decks = S.decks.includes(id) ? S.decks.filter(x => x !== id) : S.decks.concat(id);
-  save(); renderDecks(); renderStart(); renderHero();
+function renderDecks(){
+  $('#decks').innerHTML = DECKS.map(d =>
+    '<button class="chip" data-deck="' + d.id + '" aria-pressed="' + S.decks.includes(d.id) + '">'
+    + '<span lang="ja">' + d.label + '</span><span class="n">' + DECK_SIZE[d.id] + '</span></button>').join('');
+}
+function freePool(){ return ITEMS.filter(i => S.decks.includes(i.deck)); }
+function renderFreeSub(){
+  const p = freePool();
+  $('#free-btn').innerHTML = '開始自由練習<span class="sub">'
+    + (p.length ? '範圍共 ' + p.length + ' 字' : '請先選一個範圍') + '</span>';
+  $('#free-btn').disabled = p.length === 0;
+}
+
+$('#chapters').addEventListener('click', e => {
+  const head = e.target.closest('.chapter-head');
+  if (head) { head.closest('.chapter').classList.toggle('open'); return; }
+  const row = e.target.closest('[data-lesson]');
+  if (row) startLesson(LESSON_BY_ID[row.dataset.lesson]);
 });
-$('#preset-btn').addEventListener('click', () => {
-  S.decks = ['k-base','k-daku','h-daku'];
-  save(); renderDecks(); renderStart(); renderHero();
-});
-$('#modes').addEventListener('click', e => {
-  const b = e.target.closest('[data-mode]'); if (!b) return;
-  S.mode = b.dataset.mode; save();
-  $$('#modes .mode').forEach(m => m.setAttribute('aria-pressed', String(m.dataset.mode === S.mode)));
-  $('#write-opts').hidden = S.mode !== 'write';
-});
-$('#write-opts').addEventListener('click', e => {
-  const b = e.target.closest('[data-trace]'); if (!b) return;
-  S.trace = +b.dataset.trace; save();
-  $$('#write-opts button').forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.trace === S.trace)));
-});
-$('#lens').addEventListener('click', e => {
-  const b = e.target.closest('[data-len]'); if (!b) return;
-  S.len = +b.dataset.len; save();
-  $$('#lens button').forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.len === S.len)));
-});
+$('#continue-btn').addEventListener('click', () => { const l = nextLesson(); if (l) startLesson(l); });
+$('#review-btn').addEventListener('click', startReview);
 $('#chart-script').addEventListener('click', e => {
   const b = e.target.closest('[data-script]'); if (!b) return;
   S.chartScript = b.dataset.script; save();
@@ -789,197 +1112,275 @@ $('#chart-set').addEventListener('click', e => {
   $$('#chart-set button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.set === S.chartSet)));
   renderChart();
 });
+$('#decks').addEventListener('click', e => {
+  const b = e.target.closest('[data-deck]'); if (!b) return;
+  const id = b.dataset.deck;
+  S.decks = S.decks.includes(id) ? S.decks.filter(x => x !== id) : S.decks.concat(id);
+  save(); renderDecks(); renderFreeSub();
+});
+$('#modes').addEventListener('click', e => {
+  const b = e.target.closest('[data-mode]'); if (!b) return;
+  S.mode = b.dataset.mode; save();
+  $$('#modes .mode').forEach(m => m.setAttribute('aria-pressed', String(m.dataset.mode === S.mode)));
+});
+$('#lens').addEventListener('click', e => {
+  const b = e.target.closest('[data-len]'); if (!b) return;
+  S.len = +b.dataset.len; save();
+  $$('#lens button').forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.len === S.len)));
+});
+$('#free-btn').addEventListener('click', startFree);
 $('#reset-btn').addEventListener('click', () => {
-  if (!confirm('確定清除所有練習紀錄？這動作無法復原。')) return;
-  S = JSON.parse(JSON.stringify(DEFAULT_STATE));
-  save(); syncControls(); renderHome();
+  if (!confirm('確定清除所有學習紀錄？這動作無法復原。')) return;
+  S = JSON.parse(JSON.stringify(DEFAULT_STATE)); save();
+  syncControls(); renderHome();
 });
 $('#theme-btn').addEventListener('click', () => {
   const cur = document.documentElement.getAttribute('data-theme');
   const dark = cur ? cur === 'dark' : matchMedia('(prefers-color-scheme:dark)').matches;
   document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+  learnPad.redraw(); drillPad.redraw();
 });
-
 function syncControls(){
   $$('#modes .mode').forEach(m => m.setAttribute('aria-pressed', String(m.dataset.mode === S.mode)));
-  $$('#write-opts button').forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.trace === S.trace)));
   $$('#lens button').forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.len === S.len)));
   $$('#chart-script button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.script === S.chartScript)));
   $$('#chart-set button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.set === S.chartSet)));
-  $('#write-opts').hidden = S.mode !== 'write';
 }
 
-/* ═══ 出題 ═════════════════════════════════════════════════════════════ */
-let Q = null;   // {queue, i, total, right, wrong, t0, answered}
+/* ═══ 學習卡 ═══════════════════════════════════════════════════════════ */
+let L = null;   // {lesson, i}
 
-function buildQueue(){
+function startLesson(lesson){
+  L = {lesson, i:0};
+  touchStreak();
+  show('screen-learn');
+  renderLearn();
+}
+function renderLearn(){
+  const it = L.lesson.chars[L.i];
+  $('#learn-title').textContent = L.lesson.label + '　' + (L.i + 1) + ' / ' + L.lesson.chars.length;
+  $('#learn-dots').innerHTML = L.lesson.chars.map((_, i) =>
+    '<i class="' + (i === L.i ? 'on' : '') + '"></i>').join('');
+  $('#learn-kana').textContent = it.kana;
+  $('#learn-rom').textContent = it.romaji;
+
+  let lore = '';
+  if (L.i === 0 && L.lesson.note) {
+    lore += '<div class="lore-row"><span class="k">重點</span><span class="v"><em>' + esc(L.lesson.note) + '</em></span></div>';
+  }
+  if (it.lore) {
+    lore += '<div class="lore-row"><span class="k">字源</span><span class="v">'
+      + '<span class="src" lang="ja">' + it.lore[0] + '</span>' + esc(it.lore[1]) + '</span></div>';
+  } else {
+    const base = it.set === 'daku'
+      ? '在清音右上加「゛」或「゜」，字形跟清音一樣'
+      : 'い段的字 + 小的 ゃ／ゅ／ょ，兩字拼成一個音';
+    lore += '<div class="lore-row"><span class="k">組成</span><span class="v">' + base + '</span></div>';
+  }
+  lore += '<div class="lore-row"><span class="k">寫法</span><span class="v">'
+    + scriptName(it.script) + '・' + (it.strokes ? it.strokes + ' 畫' : '兩個字') + '，由上到下、由左到右</span></div>';
+  const conf = CONFUSE_MAP[it.kana];
+  if (conf && conf.size) {
+    lore += '<div class="lore-row"><span class="k">小心</span><span class="v">別跟 '
+      + Array.from(conf).slice(0,3).map(k => '<em lang="ja">' + k + '</em>').join('、') + ' 搞混</span></div>';
+  }
+  $('#learn-lore').innerHTML = lore;
+
+  $('#learn-prev').disabled = L.i === 0;
+  $('#learn-next').innerHTML = (L.i === L.lesson.chars.length - 1)
+    ? '學完了，開始測驗 →' : '下一個 →';
+  learnPad.set(it, true);
+}
+$('#learn-sound').addEventListener('click', () => speak(L.lesson.chars[L.i].kana));
+$('#learn-prev').addEventListener('click', () => { if (L.i > 0) { L.i--; renderLearn(); } });
+$('#learn-next').addEventListener('click', () => {
+  if (L.i < L.lesson.chars.length - 1) { L.i++; renderLearn(); window.scrollTo(0,0); }
+  else startLessonQuiz(L.lesson);
+});
+$('#learn-quit').addEventListener('click', () => { renderHome(); show('screen-home'); });
+
+/* ═══ 測驗 ═════════════════════════════════════════════════════════════ */
+let Q = null;
+
+function optionPool(item, lessonChars){
+  // 選項只從「這一課的字」加「已經學過的字」裡挑，不會冒出還沒學的
+  const seen = new Set(), out = [];
+  const add = arr => { for (const c of arr) { if (c.id !== item.id && !seen.has(c.romaji)) { seen.add(c.romaji); out.push(c); } } };
+  if (lessonChars) add(shuffle(lessonChars.slice()));
+  const conf = CONFUSE_MAP[item.kana];
+  const learned = learnedItems();
+  if (conf) add(shuffle(learned.filter(i => conf.has(i.kana))));
+  add(shuffle(learned.filter(i => i.script === item.script)));
+  add(shuffle(learned));
+  add(shuffle(ITEMS.filter(i => i.script === item.script && i.set === item.set)));
+  return out;
+}
+function makeQ(item, kind, lessonChars){
+  return {item, kind, lessonChars};
+}
+function startLessonQuiz(lesson){
+  const cs = lesson.chars;
+  const qs = [];
+  shuffle(cs.slice()).forEach(c => qs.push(makeQ(c, 'recog', cs)));
+  if (cs.length <= 6) shuffle(cs.slice()).forEach(c => qs.push(makeQ(c, 'recall', cs)));
+  shuffle(cs.slice()).forEach(c => qs.push(makeQ(c, 'write', cs)));
+  runQuiz(qs, {kind:'lesson', lesson});
+}
+function startReview(){
+  const due = shuffle(dueItems()).slice(0, 25);
+  if (!due.length) return;
+  const kinds = ['recog','recall','write'];
+  runQuiz(due.map(i => makeQ(i, kinds[(Math.random()*3)|0], null)), {kind:'review'});
+}
+function startFree(){
+  const p = freePool();
+  if (!p.length) return;
   const now = Date.now();
-  const p = pool();
-  const due = [], fresh = [], rest = [];
+  const dueF = [], fresh = [], rest = [];
   for (const it of p) {
     const c = S.cards[it.id];
-    if (!c) fresh.push(it);
-    else if (c.d <= now) due.push(it);
-    else rest.push(it);
+    if (!c) fresh.push(it); else if (c.d <= now) dueF.push(it); else rest.push(it);
   }
-  due.sort((a,b) => S.cards[a.id].d - S.cards[b.id].d);
+  dueF.sort((a,b) => S.cards[a.id].d - S.cards[b.id].d);
   shuffle(fresh);
-  rest.sort((a,b) => (S.cards[a.id].l - S.cards[b.id].l) || (S.cards[b.id].w - S.cards[a.id].w));
-  const q = due.concat(fresh, rest).slice(0, Math.min(S.len, p.length));
-  return shuffle(q);
+  rest.sort((a,b) => S.cards[a.id].l - S.cards[b.id].l);
+  const picked = dueF.concat(fresh, rest).slice(0, Math.min(S.len, p.length));
+  runQuiz(shuffle(picked).map(i => makeQ(i, S.mode, null)), {kind:'free'});
 }
 
-function distractors(item, n){
-  const p = pool().filter(i => i.id !== item.id);
-  const seen = new Set([item.romaji]);
-  const out = [];
-  const push = arr => {
-    for (const c of arr) {
-      if (out.length >= n) return;
-      if (seen.has(c.romaji)) continue;
-      seen.add(c.romaji); out.push(c);
-    }
-  };
-  const conf = CONFUSE_MAP[item.kana];
-  if (conf) push(shuffle(p.filter(i => conf.has(i.kana))));
-  push(shuffle(p.filter(i => i.row === item.row && i.script === item.script && i.set === item.set)));
-  push(shuffle(p.filter(i => i.col === item.col && i.script === item.script)));
-  push(shuffle(p.slice()));
-  // 題庫太小時，從全部假名補齊
-  if (out.length < n) push(shuffle(ITEMS.filter(i => i.script === item.script)));
-  if (out.length < n) push(shuffle(ITEMS.slice()));
-  return out.slice(0, n);
-}
-
-function confuseTip(item){
-  const conf = CONFUSE_MAP[item.kana];
-  if (!conf) return '';
-  const list = Array.from(conf).slice(0, 3)
-    .map(k => BY_KANA[k] ? `<span class="kana" lang="ja">${k}</span> ${BY_KANA[k].romaji}` : '')
-    .filter(Boolean);
-  if (!list.length) return '';
-  return `<span class="tip">容易混淆：${list.join('、')}</span>`;
-}
-
-function startSession(){
-  const q = buildQueue();
-  if (!q.length) return;
-  Q = {queue:q, i:0, total:q.length, base:q.length, right:0, wrong:0, t0:Date.now(), answered:false, missed:[]};
+function runQuiz(qs, meta){
+  if (!qs.length) return;
+  Q = {qs, i:0, base:qs.length, total:qs.length, right:0, wrong:0,
+       t0:Date.now(), answered:false, missed:[], meta, hinted:false};
   touchStreak();
   show('screen-drill');
   nextQuestion();
 }
 
 function nextQuestion(){
-  if (Q.i >= Q.queue.length) return finish();
-  const item = Q.queue[Q.i];
-  Q.answered = false;
-  Q.current = item;
+  if (Q.i >= Q.qs.length) return finish();
+  const q = Q.qs[Q.i];
+  const item = q.item;
+  Q.answered = false; Q.hinted = false; Q.current = q;
 
   $('#prog-bar').style.width = (Q.i / Q.total * 100) + '%';
-  $('#prog-count').textContent = `${Math.min(Q.i + 1, Q.total)} / ${Q.total}`;
-  $('#stage').classList.toggle('compact', S.mode === 'write');
-  $('#feedback').className = 'feedback';
-  $('#feedback').innerHTML = '';
+  $('#prog-count').textContent = Math.min(Q.i + 1, Q.total) + ' / ' + Q.total;
+  $('#stage').classList.toggle('compact', q.kind === 'write');
+  $('#feedback').className = 'feedback'; $('#feedback').innerHTML = '';
   $('#next-btn').hidden = true;
   $('#stamp').className = 'stamp';
   $('#answers').hidden = true; $('#answers').innerHTML = '';
-  $('#typerow').hidden = true;
+  $('#typerow').hidden = true; $('#typerow').style.display = 'none';
   $('#write-area').hidden = true;
   $('#grade').hidden = true;
+  $('#helprow').hidden = true;
   $('#prompt-sub').textContent = '';
 
-  if (S.mode === 'recog' || S.mode === 'type') {
-    $('#prompt-label').textContent = S.mode === 'type' ? '打出這個字的讀音' : '這個字怎麼念';
-    $('#prompt-body').innerHTML = `<div class="prompt-kana" lang="ja">${item.kana}</div>`;
-    $('#prompt-sub').textContent = item.script === 'h' ? 'ひらがな' : 'カタカナ';
-  } else if (S.mode === 'recall') {
-    $('#prompt-label').textContent = `選出對應的${item.script === 'h' ? '平假名' : '片假名'}`;
-    $('#prompt-body').innerHTML = `<div class="prompt-romaji">${item.romaji}</div>`;
+  if (q.kind === 'recog' || q.kind === 'type') {
+    $('#prompt-label').textContent = q.kind === 'type' ? '打出這個字的讀音' : '這個字唸什麼';
+    $('#prompt-body').innerHTML = '<div class="prompt-kana" lang="ja">' + item.kana + '</div>';
+    $('#prompt-sub').textContent = scriptName(item.script);
+  } else if (q.kind === 'recall') {
+    $('#prompt-label').textContent = '哪一個是 ' + item.romaji;
+    $('#prompt-body').innerHTML = '<div class="prompt-romaji">' + esc(item.romaji) + '</div>';
+    $('#prompt-sub').textContent = scriptName(item.script);
   } else {
-    $('#prompt-label').textContent = S.trace ? '照著描一遍' : '憑記憶寫出來';
-    $('#prompt-body').innerHTML = S.trace
-      ? `<div class="prompt-romaji">${item.romaji}</div>`
-      : `<div class="prompt-romaji">${item.romaji}</div>`;
-    $('#prompt-sub').textContent = (item.script === 'h' ? '平假名' : '片假名')
-      + (item.strokes ? ` · ${item.strokes} 畫` : '');
+    $('#prompt-label').textContent = '憑記憶寫出來';
+    $('#prompt-body').innerHTML = '<div class="prompt-romaji">' + esc(item.romaji) + '</div>';
+    $('#prompt-sub').textContent = scriptName(item.script) + (item.strokes ? '・' + item.strokes + ' 畫' : '');
   }
 
-  if (S.mode === 'recog' || S.mode === 'recall') {
-    const opts = shuffle(distractors(item, 3).concat([item]));
+  if (q.kind === 'recog' || q.kind === 'recall') {
+    const pool = optionPool(item, q.lessonChars);
+    const n = Math.min(3, pool.length);
+    const opts = shuffle(pool.slice(0, n).concat([item]));
     $('#answers').hidden = false;
-    $('#answers').innerHTML = opts.map(o =>
-      S.mode === 'recog'
-        ? `<button class="ans" data-id="${o.id}">${o.romaji}</button>`
-        : `<button class="ans kana" data-id="${o.id}" lang="ja">${o.kana}</button>`
-    ).join('');
-  } else if (S.mode === 'type') {
-    $('#typerow').hidden = false;
-    const inp = $('#type-input');
-    inp.value = ''; inp.disabled = false;
+    $('#answers').innerHTML = opts.map(o => q.kind === 'recog'
+      ? '<button class="ans" data-id="' + o.id + '">' + esc(o.romaji) + '</button>'
+      : '<button class="ans kana" data-id="' + o.id + '" lang="ja">' + o.kana + '</button>').join('');
+    $('#helprow').hidden = false;
+    $('#help-btn').textContent = '想不起來，給我提示';
+  } else if (q.kind === 'type') {
+    $('#typerow').hidden = false; $('#typerow').style.display = 'flex';
+    const inp = $('#type-input'); inp.value = ''; inp.disabled = false;
     setTimeout(() => inp.focus(), 30);
+    $('#helprow').hidden = false;
+    $('#help-btn').textContent = '想不起來，給我提示';
   } else {
     $('#write-area').hidden = false;
     $('#grade').hidden = false;
-    setupPad(item);
+    drillPad.set(item, false);
   }
 }
 
+function loreLine(item){
+  if (!item.lore) return '';
+  return '<span class="tip">字源 <span class="src" lang="ja">' + item.lore[0] + '</span>'
+    + esc(item.lore[1]) + '</span>';
+}
 function stamp(ok){
   const el = $('#stamp');
   el.textContent = ok ? '○' : '×';
   el.className = 'stamp go ' + (ok ? 'ok' : 'no');
 }
-
 function answer(ok, chosenId){
   if (Q.answered) return;
   Q.answered = true;
-  const item = Q.current;
+  if (Q.hinted) ok = false;              // 看過提示就不算完全記得，讓它再回來
+  const item = Q.current.item;
   grade(item.id, ok);
   if (ok) Q.right++; else { Q.wrong++; if (!Q.missed.includes(item.id)) Q.missed.push(item.id); }
   stamp(ok);
 
-  if (S.mode === 'recog' || S.mode === 'recall') {
+  if (Q.current.kind === 'recog' || Q.current.kind === 'recall') {
     $$('#answers .ans').forEach(b => {
       b.disabled = true;
       if (b.dataset.id === item.id) b.classList.add('right');
       else if (b.dataset.id === chosenId) b.classList.add('wrong');
     });
   }
-  if (S.mode === 'type') $('#type-input').disabled = true;
+  if (Q.current.kind === 'type') $('#type-input').disabled = true;
+  $('#helprow').hidden = true;
 
   const fb = $('#feedback');
   fb.className = 'feedback on ' + (ok ? 'ok' : 'no');
-  fb.innerHTML = `<span class="big"><span class="kana" lang="ja">${item.kana}</span> = ${item.romaji}</span>`
-    + `<span class="tip">${item.rowLabel}・${item.script === 'h' ? '平假名' : '片假名'}`
-    + (item.strokes ? `・${item.strokes} 畫` : '') + `</span>`
-    + (ok ? '' : confuseTip(item));
+  fb.innerHTML = '<span class="big"><span class="kana" lang="ja">' + item.kana + '</span> = ' + esc(item.romaji) + '</span>'
+    + '<span class="tip">' + item.rowLabel + '・' + scriptName(item.script)
+    + (item.strokes ? '・' + item.strokes + ' 畫' : '') + '</span>'
+    + (ok ? '' : loreLine(item));
 
-  // 答錯的字，稍後在同一組裡再問一次（整組最多加 8 題，不會無限長大）
-  if (!ok && Q.queue.length < Q.base + 8) {
-    const at = Math.min(Q.queue.length, Q.i + 4);
-    Q.queue.splice(at, 0, item);
-    Q.total = Q.queue.length;
+  if (!ok && Q.qs.length < Q.base + 8) {
+    Q.qs.splice(Math.min(Q.qs.length, Q.i + 4), 0, Q.current);
+    Q.total = Q.qs.length;
   }
   $('#next-btn').hidden = false;
   $('#next-btn').focus({preventScroll:true});
 }
 
+$('#help-btn').addEventListener('click', () => {
+  if (Q.answered) return;
+  Q.hinted = true;
+  const item = Q.current.item;
+  const fb = $('#feedback');
+  fb.className = 'feedback on';
+  fb.innerHTML = '<span class="big">提示</span>' + (loreLine(item)
+    || '<span class="tip">' + item.rowLabel + '・' + scriptName(item.script) + '</span>');
+  $('#help-btn').textContent = '（提示已顯示，這題會再出現一次）';
+});
 $('#answers').addEventListener('click', e => {
   const b = e.target.closest('.ans'); if (!b || Q.answered) return;
-  answer(b.dataset.id === Q.current.id, b.dataset.id);
+  answer(b.dataset.id === Q.current.item.id, b.dataset.id);
 });
 function submitTyped(){
   if (Q.answered) return;
   const v = $('#type-input').value.trim().toLowerCase().replace(/[^a-z]/g,'');
   if (!v) return;
-  answer(Q.current.accept.includes(v), null);
+  answer(Q.current.item.accept.includes(v), null);
 }
 $('#type-submit').addEventListener('click', submitTyped);
 $('#type-input').addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
-  // 擋掉預設行為，否則 Enter 會順手按下剛取得焦點的「下一題」，一次跳兩題
-  e.preventDefault();
+  e.preventDefault();          // 否則 Enter 會順手按下剛取得焦點的「下一題」
   submitTyped();
 });
 $('#grade').addEventListener('click', e => {
@@ -989,7 +1390,6 @@ $('#grade').addEventListener('click', e => {
 $('#next-btn').addEventListener('click', () => { Q.i++; nextQuestion(); });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
-  // 讓輸入框和按鈕自己處理 Enter，不然會一次跳兩題
   const t = e.target.tagName;
   if (t === 'INPUT' || t === 'BUTTON' || t === 'TEXTAREA') return;
   if (!$('#screen-drill').classList.contains('is-on')) return;
@@ -997,130 +1397,34 @@ document.addEventListener('keydown', e => {
 });
 $('#quit-btn').addEventListener('click', () => { renderHome(); show('screen-home'); });
 
-/* ═══ 手寫格 ═══════════════════════════════════════════════════════════ */
-const pad = $('#pad');
-const ctx = pad.getContext('2d');
-let strokes = [], drawing = null, padItem = null, revealed = false, dpr = 1;
-
-function padSize(){
-  const r = pad.getBoundingClientRect();
-  dpr = Math.min(window.devicePixelRatio || 1, 3);
-  pad.width = Math.round(r.width * dpr);
-  pad.height = Math.round(r.height * dpr);
-}
-function cssvar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
-
-function drawPad(){
-  const w = pad.width, h = pad.height;
-  ctx.clearRect(0,0,w,h);
-
-  // 十字格
-  ctx.save();
-  ctx.strokeStyle = cssvar('--rule-strong') || 'rgba(43,74,143,.3)';
-  ctx.lineWidth = 1.5 * dpr;
-  ctx.setLineDash([6*dpr, 6*dpr]);
-  ctx.beginPath();
-  ctx.moveTo(w/2, 0); ctx.lineTo(w/2, h);
-  ctx.moveTo(0, h/2); ctx.lineTo(w, h/2);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.globalAlpha = .3;
-  ctx.beginPath();
-  ctx.moveTo(0,0); ctx.lineTo(w,h); ctx.moveTo(w,0); ctx.lineTo(0,h);
-  ctx.stroke();
-  ctx.restore();
-
-  // 範本字
-  if (padItem && (S.trace || revealed)) {
-    ctx.save();
-    ctx.fillStyle = revealed && !S.trace ? (cssvar('--shu') || '#C8412A') : (cssvar('--ink') || '#191D26');
-    ctx.globalAlpha = revealed && !S.trace ? .3 : .14;
-    const size = h * (padItem.kana.length > 1 ? 0.56 : 0.74);
-    ctx.font = `${size}px ${cssvar('--font-gothic') || 'sans-serif'}`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(padItem.kana, w/2, h/2 + size*0.04);
-    ctx.restore();
-  }
-
-  // 使用者筆跡
-  ctx.save();
-  ctx.strokeStyle = cssvar('--ink') || '#191D26';
-  ctx.lineWidth = 7 * dpr;
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  for (const st of strokes) {
-    if (st.length < 2) {
-      if (st.length === 1) { ctx.beginPath(); ctx.arc(st[0].x, st[0].y, 3.5*dpr, 0, 7); ctx.fillStyle = ctx.strokeStyle; ctx.fill(); }
-      continue;
-    }
-    ctx.beginPath();
-    ctx.moveTo(st[0].x, st[0].y);
-    for (let i = 1; i < st.length; i++) ctx.lineTo(st[i].x, st[i].y);
-    ctx.stroke();
-  }
-  ctx.restore();
-  updateStrokeInfo();
-}
-function updateStrokeInfo(){
-  if (!padItem) return;
-  const el = $('#stroke-info');
-  if (!padItem.strokes) { el.textContent = `已寫 ${strokes.length} 筆`; return; }
-  const over = strokes.length > padItem.strokes;
-  el.innerHTML = `筆畫 <b class="${over ? 'over' : ''}">${strokes.length}</b> / ${padItem.strokes}`;
-}
-function setupPad(item){
-  padItem = item; strokes = []; revealed = false;
-  requestAnimationFrame(() => { padSize(); drawPad(); });
-}
-function pos(e){
-  const r = pad.getBoundingClientRect();
-  return {x:(e.clientX - r.left) * dpr, y:(e.clientY - r.top) * dpr};
-}
-pad.addEventListener('pointerdown', e => {
-  if (!padItem) return;
-  e.preventDefault();
-  pad.setPointerCapture(e.pointerId);
-  drawing = [pos(e)];
-  strokes.push(drawing);
-  drawPad();
-});
-pad.addEventListener('pointermove', e => {
-  if (!drawing) return;
-  e.preventDefault();
-  drawing.push(pos(e));
-  drawPad();
-});
-const endStroke = () => { drawing = null; };
-pad.addEventListener('pointerup', endStroke);
-pad.addEventListener('pointercancel', endStroke);
-pad.addEventListener('lostpointercapture', endStroke);
-$('#undo-btn').addEventListener('click', () => { strokes.pop(); drawPad(); });
-$('#clear-btn').addEventListener('click', () => { strokes = []; drawPad(); });
-$('#peek-btn').addEventListener('click', () => { revealed = true; drawPad(); });
-window.addEventListener('resize', () => {
-  if ($('#write-area').hidden) return;
-  const old = strokes.map(s => s.map(p => ({x:p.x/pad.width, y:p.y/pad.height})));
-  padSize();
-  strokes = old.map(s => s.map(p => ({x:p.x*pad.width, y:p.y*pad.height})));
-  drawPad();
-});
-
 /* ═══ 結算 ═════════════════════════════════════════════════════════════ */
 function finish(){
   const n = Q.right + Q.wrong;
   const secs = Math.round((Date.now() - Q.t0)/1000);
+  if (Q.meta.kind === 'lesson' && !S.done.includes(Q.meta.lesson.id)) {
+    S.done.push(Q.meta.lesson.id); save();
+  }
+  $('#done-eyebrow').textContent = Q.meta.kind === 'lesson' ? 'Lesson complete'
+    : (Q.meta.kind === 'review' ? 'Review complete' : 'Practice complete');
   $('#s-acc').textContent = n ? Math.round(Q.right/n*100) + '%' : '—';
   $('#s-num').textContent = n;
   $('#s-time').textContent = secs >= 60 ? Math.floor(secs/60) + 'm' + String(secs%60).padStart(2,'0') : secs + 's';
+
   const weak = Q.missed.map(id => BY_ID[id]);
   $('#weak-block').hidden = weak.length === 0;
   $('#weak-list').innerHTML = weak.map(i =>
-    `<span class="weak-item"><span class="kana" lang="ja">${i.kana}</span>${i.romaji}</span>`).join('');
+    '<span class="weak-item"><span class="kana" lang="ja">' + i.kana + '</span>' + esc(i.romaji) + '</span>').join('');
+
+  const nl = nextLesson();
+  const dn = $('#done-next');
+  dn.hidden = !nl;
+  if (nl) dn.innerHTML = '下一課：' + nl.chars.map(c => c.kana).join(' ');
+  $('#done-redo').hidden = Q.meta.kind !== 'lesson';
   show('screen-done');
-  renderHome();
 }
+$('#done-next').addEventListener('click', () => { const l = nextLesson(); if (l) startLesson(l); });
+$('#done-redo').addEventListener('click', () => { if (Q && Q.meta.lesson) startLesson(Q.meta.lesson); });
 $('#home-btn').addEventListener('click', () => { renderHome(); show('screen-home'); });
-$('#again-btn').addEventListener('click', startSession);
-$('#start-btn').addEventListener('click', startSession);
 
 /* ═══ go ═══════════════════════════════════════════════════════════════ */
 syncControls();
