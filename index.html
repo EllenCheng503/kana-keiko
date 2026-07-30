@@ -3,10 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#EDEFF2">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#EDEFF2">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0E1116">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="仮名けいこ">
 <meta name="description" content="從零開始學日文五十音：每課先教會 5 個字（漢字來源、字形聯想、發音、手寫描摹），再測這 5 個字。">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <title>仮名けいこ · 從零學五十音</title>
 </head>
 <body>
@@ -119,6 +125,49 @@ button{cursor:pointer;border:0;background:none}
 }
 .icon-btn:hover{border-color:var(--ai);color:var(--ai)}
 
+/* ── 學習者 ─────────────────────────────────────────────────────────── */
+.idbar{display:flex;align-items:center;justify-content:space-between;gap:.75rem}
+.who{
+  display:inline-flex;align-items:center;gap:.5rem;padding:.3rem .7rem .3rem .3rem;
+  border:1.5px solid var(--hair);border-radius:999px;background:var(--card);min-width:0;
+}
+.who:hover{border-color:var(--ai)}
+.avatar{
+  width:1.7rem;height:1.7rem;border-radius:50%;flex:none;display:grid;place-items:center;
+  background:var(--ai);color:var(--paper);font-size:.8rem;font-weight:600;
+}
+.who-name{font-size:.85rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.who-caret{font-size:.66rem;color:var(--ink-faint);flex:none;font-family:var(--font-mono)}
+
+.sheet-backdrop{
+  position:fixed;inset:0;z-index:50;background:rgba(10,14,22,.45);
+  display:flex;align-items:flex-end;justify-content:center;padding:0;
+}
+.sheet{
+  width:var(--wrap);max-height:88vh;overflow-y:auto;background:var(--paper);
+  border-radius:var(--r) var(--r) 0 0;border:1.5px solid var(--hair);border-bottom:0;
+  padding:1rem 1rem calc(1.2rem + env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;gap:.6rem;
+}
+@media (min-width:32rem){
+  .sheet-backdrop{align-items:center}
+  .sheet{border-radius:var(--r);border-bottom:1.5px solid var(--hair)}
+}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding-bottom:.2rem}
+.sheet-head h3{margin:0;font-size:1rem;font-weight:650}
+.who-list{display:flex;flex-direction:column;gap:.4rem}
+.who-row{
+  display:flex;align-items:center;gap:.6rem;padding:.6rem .7rem;text-align:left;
+  border:1.5px solid var(--hair);border-radius:var(--r-sm);background:var(--card);
+}
+.who-row:hover{border-color:var(--ai)}
+.who-row[aria-current="true"]{border-color:var(--ai);background:var(--ai-soft)}
+.who-row .nm{flex:1;font-size:.9rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.who-row .meta{font-family:var(--font-mono);font-size:.66rem;color:var(--ink-faint);flex:none}
+.who-row .tick{color:var(--ai);font-size:.85rem;flex:none}
+.ghost.danger{border-color:var(--shu);color:var(--shu)}
+.ghost.danger:hover{background:var(--shu-soft)}
+
 .block{display:flex;flex-direction:column;gap:.6rem}
 .block-head{display:flex;align-items:baseline;justify-content:space-between;gap:.75rem}
 .block-head h3{
@@ -208,11 +257,13 @@ button{cursor:pointer;border:0;background:none}
   font-family:var(--font-mono);font-size:clamp(2rem,10vw,2.6rem);color:var(--ai);
   font-weight:600;letter-spacing:.02em;line-height:1;
 }
+.sound-row{display:flex;align-items:center;gap:.3rem;flex-wrap:wrap}
 .learn .sound{
-  display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .65rem;border-radius:999px;
-  border:1.5px solid var(--hair);font-size:.72rem;color:var(--ink-soft);
+  display:inline-flex;align-items:center;gap:.35rem;padding:.42rem .8rem;border-radius:999px;
+  border:1.5px solid var(--ai);font-size:.78rem;color:var(--ai);background:var(--ai-soft);font-weight:600;
 }
-.learn .sound:hover{border-color:var(--ai);color:var(--ai)}
+.learn .sound:hover{filter:brightness(.97)}
+.learn .sound:active{transform:translateY(1px)}
 .lore{
   width:100%;border-top:1.5px dashed var(--rule);padding-top:.7rem;
   display:flex;flex-direction:column;gap:.4rem;
@@ -426,10 +477,18 @@ footer button{font-size:.68rem;color:var(--shu);text-decoration:underline;text-u
       <h1 lang="ja">仮名けいこ</h1>
     </div>
     <div class="masthead-side">
-      <div class="streak">連續<b id="streak-n">0</b>天</div>
       <button class="icon-btn" id="theme-btn" title="切換深／淺色" aria-label="切換深淺色">◐</button>
     </div>
   </header>
+
+  <div class="idbar">
+    <button class="who" id="who-btn">
+      <span class="avatar" id="who-initial">我</span>
+      <span class="who-name" id="who-name">我</span>
+      <span class="who-caret">切換 ▾</span>
+    </button>
+    <div class="streak">連續<b id="streak-n">0</b>天</div>
+  </div>
 
   <button class="cta" id="continue-btn">開始第一課<span class="sub" id="continue-sub"></span></button>
   <button class="ghost" id="review-btn" hidden>今日複習<span class="sub" id="review-sub"></span></button>
@@ -484,8 +543,8 @@ footer button{font-size:.68rem;color:var(--shu);text-decoration:underline;text-u
   </details>
 
   <footer>
-    進度只存在這台裝置的瀏覽器裡，不會上傳，也不需要帳號。<br>
-    <button id="reset-btn">清除所有學習紀錄</button>
+    進度只存在這台裝置的瀏覽器裡，不會上傳到任何伺服器。<br>
+    <button id="reset-btn">切換學習者・備份・清除進度</button>
   </footer>
 </section>
 
@@ -502,7 +561,10 @@ footer button{font-size:.68rem;color:var(--shu);text-decoration:underline;text-u
       <span class="kana-lg" lang="ja" id="learn-kana">あ</span>
       <span class="say">
         <span class="rom-lg" id="learn-rom">a</span>
-        <button class="sound" id="learn-sound" hidden>🔊 聽發音</button>
+        <span class="sound-row" id="sound-row" hidden>
+          <button class="sound" id="learn-sound">🔊 再聽一次</button>
+          <button class="tool" id="auto-speak" aria-pressed="true" title="翻到新的字自動唸一次">自動</button>
+        </span>
       </span>
     </div>
     <div class="lore" id="learn-lore"></div>
@@ -594,6 +656,34 @@ footer button{font-size:.68rem;color:var(--shu);text-decoration:underline;text-u
   <button class="ghost" id="done-redo">重做這一課</button>
   <button class="ghost" id="home-btn">回首頁</button>
 </section>
+
+<!-- ══ 學習者切換 ════════════════════════════════════════════════════ -->
+<div class="sheet-backdrop" id="who-sheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-label="學習者">
+    <div class="sheet-head">
+      <h3>誰在學？</h3>
+      <button class="icon-btn" id="who-close" aria-label="關閉">✕</button>
+    </div>
+    <p class="note">一台裝置上可以有好幾位學習者，各自一份完全獨立的進度。點名字就切換過去。</p>
+    <div class="who-list" id="who-list"></div>
+    <div class="row2">
+      <button class="ghost" id="who-add">＋ 新增學習者</button>
+      <button class="ghost" id="who-rename">改名字</button>
+    </div>
+
+    <div class="block-head" style="padding-top:.4rem"><h3>備份</h3></div>
+    <p class="note">進度只存在這台裝置的瀏覽器裡。<b>換手機、清瀏覽器資料、或用無痕模式，進度都會不見。</b>要保住就匯出一個備份檔，到另一台裝置匯入。</p>
+    <div class="row2">
+      <button class="ghost" id="who-export">匯出備份檔</button>
+      <button class="ghost" id="who-import">匯入備份檔</button>
+    </div>
+    <input type="file" id="who-file" accept="application/json,.json" hidden>
+
+    <div class="block-head" style="padding-top:.4rem"><h3>危險區</h3></div>
+    <button class="ghost danger" id="who-del">刪除目前這位學習者</button>
+    <button class="ghost danger" id="who-reset">清空目前這位的學習進度</button>
+  </div>
+</div>
 
 </main>
 
@@ -832,7 +922,8 @@ const DECK_SIZE = {};
 DECKS.forEach(d => DECK_SIZE[d.id] = ITEMS.filter(i => i.deck === d.id).length);
 
 /* ═══ 儲存與間隔複習 ═══════════════════════════════════════════════════ */
-const KEY = 'kana-keiko-v2';
+const KEY = 'kana-keiko-v3';
+const OLD_KEY = 'kana-keiko-v2';
 const MIN = 60000, DAY = 86400000;
 const INTERVALS = [MIN, 10*MIN, DAY, 2*DAY, 5*DAY, 12*DAY, 30*DAY];
 const MAXLVL = INTERVALS.length - 1;
@@ -840,17 +931,51 @@ const DEFAULT_STATE = {
   cards:{}, done:[], streak:0, last:'',
   chartScript:'h', chartSet:'base',
   decks:['h-base'], mode:'recog', len:20,
+  autoSpeak:true,
 };
-let S = load();
 
-function load(){
+/* 一台裝置上可以有多位學習者，各自一份完全獨立的進度 */
+let STORE = loadStore();
+let S = STORE.profiles[STORE.active].data;
+
+function newId(){ return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
+function newProfile(name){
+  return {name:(name || '我').slice(0,16), created:Date.now(),
+          data:JSON.parse(JSON.stringify(DEFAULT_STATE))};
+}
+function freshStore(){
+  const id = newId();
+  const st = {v:3, active:id, profiles:{}};
+  st.profiles[id] = newProfile('我');
+  return st;
+}
+function loadStore(){
   try {
     const raw = JSON.parse(localStorage.getItem(KEY));
-    if (raw && typeof raw === 'object') return Object.assign({}, DEFAULT_STATE, raw);
+    if (raw && raw.profiles && raw.active && raw.profiles[raw.active]) {
+      for (const id in raw.profiles) {
+        raw.profiles[id].data = Object.assign({}, DEFAULT_STATE, raw.profiles[id].data || {});
+      }
+      return raw;
+    }
   } catch(e){}
-  return JSON.parse(JSON.stringify(DEFAULT_STATE));
+  try {   // 從舊版的單人資料升級，進度不會掉
+    const old = JSON.parse(localStorage.getItem(OLD_KEY));
+    if (old && typeof old === 'object' && old.cards) {
+      const st = freshStore();
+      st.profiles[st.active].data = Object.assign({}, DEFAULT_STATE, old);
+      return st;
+    }
+  } catch(e){}
+  return freshStore();
 }
-function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} }
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(STORE)); } catch(e){} }
+function useProfile(id){
+  if (!STORE.profiles[id]) return;
+  STORE.active = id;
+  S = STORE.profiles[id].data;
+  save();
+}
 function card(id){ return S.cards[id] || (S.cards[id] = {l:0, d:0, s:0, w:0}); }
 function grade(id, ok){
   const c = card(id); c.s++;
@@ -878,26 +1003,43 @@ function show(id){ $$('.screen').forEach(s => s.classList.toggle('is-on', s.id =
 function esc(s){ return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
 function scriptName(s){ return s === 'h' ? '平假名' : '片假名'; }
 
-/* 發音（有日文語音才顯示按鈕） */
+/* 發音 */
+const CAN_SPEAK = 'speechSynthesis' in window && typeof SpeechSynthesisUtterance === 'function';
 let jaVoice = null;
-function findVoice(){
-  if (!('speechSynthesis' in window)) return;
-  const v = speechSynthesis.getVoices().find(v => /^ja/i.test(v.lang));
-  if (v) { jaVoice = v; $$('.sound').forEach(b => b.hidden = false); }
+function pickVoice(){
+  if (!CAN_SPEAK) return null;
+  let vs = [];
+  try { vs = speechSynthesis.getVoices() || []; } catch(e){ return null; }
+  const ja = vs.filter(v => /^ja/i.test(v.lang || ''));
+  if (!ja.length) return null;
+  // compact 是 iOS 的低音質壓縮語音，有完整版就別挑它
+  return ja.find(v => v.localService && !/compact/i.test(v.name))
+      || ja.find(v => !/compact/i.test(v.name))
+      || ja[0];
 }
-if ('speechSynthesis' in window) {
-  findVoice();
-  speechSynthesis.onvoiceschanged = findVoice;
+function refreshVoice(){ jaVoice = pickVoice(); }
+if (CAN_SPEAK) {
+  refreshVoice();
+  // iOS 和 Chrome 的語音清單是非同步載入的，第一次讀常常是空的
+  speechSynthesis.onvoiceschanged = refreshVoice;
+  setTimeout(refreshVoice, 500);
+  setTimeout(refreshVoice, 2000);
 }
 function speak(text){
-  if (!jaVoice) return;
+  if (!CAN_SPEAK) return;
+  if (!jaVoice) refreshVoice();
   try {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    u.voice = jaVoice; u.lang = jaVoice.lang; u.rate = .75;
+    if (jaVoice) u.voice = jaVoice;
+    u.lang = jaVoice ? jaVoice.lang : 'ja-JP';
+    u.volume = 1;      // 最大音量
+    u.rate = 0.55;     // 慢一點，單一個音節唸太快會糊掉
+    u.pitch = 1;
     speechSynthesis.speak(u);
   } catch(e){}
 }
+function autoSpeak(text){ if (S.autoSpeak !== false) speak(text); }
 
 /* ═══ 手寫格 ═══════════════════════════════════════════════════════════ */
 function makePad(canvas, infoEl){
@@ -1023,6 +1165,9 @@ function renderHome(){
 
   $('#lesson-hint').textContent = S.done.length + ' / ' + ALL_LESSONS.length + ' 課完成';
   $('#streak-n').textContent = S.streak;
+  const me = STORE.profiles[STORE.active];
+  $('#who-name').textContent = me.name;
+  $('#who-initial').textContent = Array.from(me.name)[0] || '?';
   renderChapters();
   renderChart();
   renderDecks();
@@ -1129,10 +1274,110 @@ $('#lens').addEventListener('click', e => {
   $$('#lens button').forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.len === S.len)));
 });
 $('#free-btn').addEventListener('click', startFree);
-$('#reset-btn').addEventListener('click', () => {
-  if (!confirm('確定清除所有學習紀錄？這動作無法復原。')) return;
-  S = JSON.parse(JSON.stringify(DEFAULT_STATE)); save();
-  syncControls(); renderHome();
+
+/* ═══ 學習者 ═══════════════════════════════════════════════════════════ */
+function profileStats(p){
+  const learned = Object.keys(p.data.cards || {}).length;
+  return (p.data.done || []).length + ' 課 · ' + learned + ' 字';
+}
+function renderWho(){
+  const ids = Object.keys(STORE.profiles)
+    .sort((a,b) => STORE.profiles[a].created - STORE.profiles[b].created);
+  $('#who-list').innerHTML = ids.map(id => {
+    const p = STORE.profiles[id], on = id === STORE.active;
+    return '<button class="who-row" data-id="' + id + '" aria-current="' + on + '">'
+      + '<span class="avatar">' + esc(Array.from(p.name)[0] || '?') + '</span>'
+      + '<span class="nm">' + esc(p.name) + '</span>'
+      + '<span class="meta">' + profileStats(p) + '</span>'
+      + '<span class="tick">' + (on ? '●' : '') + '</span></button>';
+  }).join('');
+  $('#who-del').disabled = ids.length < 2;
+  $('#who-del').textContent = ids.length < 2
+    ? '刪除學習者（只剩一位，不能刪）' : '刪除「' + STORE.profiles[STORE.active].name + '」';
+}
+function openWho(){ renderWho(); $('#who-sheet').hidden = false; }
+function closeWho(){ $('#who-sheet').hidden = true; }
+
+$('#who-btn').addEventListener('click', openWho);
+$('#reset-btn').addEventListener('click', openWho);
+$('#who-close').addEventListener('click', closeWho);
+$('#who-sheet').addEventListener('click', e => { if (e.target.id === 'who-sheet') closeWho(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeWho(); });
+
+$('#who-list').addEventListener('click', e => {
+  const b = e.target.closest('[data-id]'); if (!b) return;
+  useProfile(b.dataset.id);
+  syncControls(); renderHome(); renderWho(); closeWho(); show('screen-home');
+});
+$('#who-add').addEventListener('click', () => {
+  const name = (prompt('新學習者的名字？', '') || '').trim();
+  if (!name) return;
+  STORE.profiles[newId()] = newProfile(name);
+  const ids = Object.keys(STORE.profiles);
+  useProfile(ids[ids.length - 1]);
+  syncControls(); renderHome(); renderWho();
+});
+$('#who-rename').addEventListener('click', () => {
+  const cur = STORE.profiles[STORE.active];
+  const name = (prompt('改成什麼名字？', cur.name) || '').trim();
+  if (!name) return;
+  cur.name = name.slice(0, 16); save();
+  renderHome(); renderWho();
+});
+$('#who-del').addEventListener('click', () => {
+  const ids = Object.keys(STORE.profiles);
+  if (ids.length < 2) return;
+  const cur = STORE.profiles[STORE.active];
+  if (!confirm('確定刪除「' + cur.name + '」？這位學習者的所有進度會一起消失，無法復原。')) return;
+  delete STORE.profiles[STORE.active];
+  useProfile(Object.keys(STORE.profiles)[0]);
+  syncControls(); renderHome(); renderWho();
+});
+$('#who-reset').addEventListener('click', () => {
+  const cur = STORE.profiles[STORE.active];
+  if (!confirm('確定清空「' + cur.name + '」的學習進度？名字會留著，但 40 課全部歸零，無法復原。')) return;
+  cur.data = JSON.parse(JSON.stringify(DEFAULT_STATE));
+  S = cur.data; save();
+  syncControls(); renderHome(); renderWho();
+});
+
+$('#who-export').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(STORE, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  // 檔名用純 ASCII，中文檔名在某些瀏覽器和作業系統上會被改掉
+  a.download = 'kana-keiko-backup-' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+$('#who-import').addEventListener('click', () => $('#who-file').click());
+$('#who-file').addEventListener('change', e => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const fr = new FileReader();
+  fr.onload = () => {
+    let data;
+    try { data = JSON.parse(fr.result); } catch(_) { data = null; }
+    if (!data || !data.profiles || !data.active || !data.profiles[data.active]) {
+      alert('這個檔案不是備份檔，或是內容壞掉了。請選匯出時下載的那個 .json。');
+      return;
+    }
+    const names = Object.keys(data.profiles).map(k => data.profiles[k].name).join('、');
+    if (!confirm('備份檔裡有：' + names + '\n\n匯入會「取代」這台裝置上目前的所有進度，無法復原。要繼續嗎？')) return;
+    for (const id in data.profiles) {
+      data.profiles[id].data = Object.assign({}, DEFAULT_STATE, data.profiles[id].data || {});
+    }
+    STORE = {v:3, active:data.active, profiles:data.profiles};
+    S = STORE.profiles[STORE.active].data;
+    save();
+    syncControls(); renderHome(); renderWho(); closeWho(); show('screen-home');
+    alert('匯入完成，已切換到「' + STORE.profiles[STORE.active].name + '」。');
+  };
+  fr.onerror = () => alert('讀不到這個檔案，換一個試試。');
+  fr.readAsText(file);
 });
 $('#theme-btn').addEventListener('click', () => {
   const cur = document.documentElement.getAttribute('data-theme');
@@ -1141,6 +1386,8 @@ $('#theme-btn').addEventListener('click', () => {
   learnPad.redraw(); drillPad.redraw();
 });
 function syncControls(){
+  $('#sound-row').hidden = !CAN_SPEAK;
+  $('#auto-speak').setAttribute('aria-pressed', String(S.autoSpeak !== false));
   $$('#modes .mode').forEach(m => m.setAttribute('aria-pressed', String(m.dataset.mode === S.mode)));
   $$('#lens button').forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.len === S.len)));
   $$('#chart-script button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.script === S.chartScript)));
@@ -1190,8 +1437,14 @@ function renderLearn(){
   $('#learn-next').innerHTML = (L.i === L.lesson.chars.length - 1)
     ? '學完了，開始測驗 →' : '下一個 →';
   learnPad.set(it, true);
+  autoSpeak(it.kana);
 }
 $('#learn-sound').addEventListener('click', () => speak(L.lesson.chars[L.i].kana));
+$('#auto-speak').addEventListener('click', () => {
+  S.autoSpeak = S.autoSpeak === false; save();
+  $('#auto-speak').setAttribute('aria-pressed', String(S.autoSpeak !== false));
+  if (S.autoSpeak !== false && L) speak(L.lesson.chars[L.i].kana);
+});
 $('#learn-prev').addEventListener('click', () => { if (L.i > 0) { L.i--; renderLearn(); } });
 $('#learn-next').addEventListener('click', () => {
   if (L.i < L.lesson.chars.length - 1) { L.i++; renderLearn(); window.scrollTo(0,0); }
@@ -1331,6 +1584,7 @@ function answer(ok, chosenId){
   grade(item.id, ok);
   if (ok) Q.right++; else { Q.wrong++; if (!Q.missed.includes(item.id)) Q.missed.push(item.id); }
   stamp(ok);
+  autoSpeak(item.kana);   // 每答完一題就聽一次，把字形和聲音綁在一起
 
   if (Q.current.kind === 'recog' || Q.current.kind === 'recall') {
     $$('#answers .ans').forEach(b => {
@@ -1425,6 +1679,15 @@ function finish(){
 $('#done-next').addEventListener('click', () => { const l = nextLesson(); if (l) startLesson(l); });
 $('#done-redo').addEventListener('click', () => { if (Q && Q.meta.lesson) startLesson(Q.meta.lesson); });
 $('#home-btn').addEventListener('click', () => { renderHome(); show('screen-home'); });
+
+/* ═══ 離線快取 ═════════════════════════════════════════════════════════
+   service worker 只能跑在 https 或 localhost，直接開檔案時會跳過（不影響其他功能）。 */
+if ('serviceWorker' in navigator &&
+    (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
 
 /* ═══ go ═══════════════════════════════════════════════════════════════ */
 syncControls();
