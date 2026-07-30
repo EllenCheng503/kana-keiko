@@ -287,6 +287,18 @@ button{cursor:pointer;border:0;background:none}
 .lore-row.mnemo .v{color:var(--ink)}
 .emo{font-size:1.9rem;line-height:1;padding-right:.45rem;vertical-align:-.35em}
 .feedback .emo,.lore-row.mnemo.sm .emo{font-size:1.3rem;vertical-align:-.2em;padding-right:.3rem}
+/* 例詞：讓語音有東西可唸，也把假名綁到一個有意義的詞上 */
+.lore-row.word{
+  align-items:center;background:var(--card-2);border-radius:var(--r-sm);
+  padding:.5rem .6rem;margin:.1rem 0;
+}
+.lore-row.word .v{color:var(--ink)}
+.wd{font-family:var(--font-gothic);font-size:1.45rem;letter-spacing:.04em;vertical-align:-.06em}
+.wd mark{background:none;color:var(--ai);font-weight:700}
+.rw{font-family:var(--font-mono);font-size:.76rem;color:var(--ink-soft);padding:0 .3rem 0 .4rem}
+.cav{display:block;font-size:.7rem;color:var(--ink-faint);margin-top:.2rem;line-height:1.45}
+.feedback .wd{font-size:1.15rem}
+.feedback .rw{font-size:.72rem}
 
 /* ── 手寫格 ─────────────────────────────────────────────────────────── */
 .pad-wrap{position:relative;width:100%;max-width:19rem;aspect-ratio:1;margin:0 auto}
@@ -932,6 +944,64 @@ const MNEMO = {
   'ン':['🤔','一點在上，尾巴由下往上挑 → n；跟 ソ 剛好相反'],
 };
 
+/* ═══ 例詞 ═════════════════════════════════════════════════════════════
+   每個假名配一個真的單字，兩個作用：
+   1. 語音有東西可唸。單獨一個假名只有 0.2 秒，語音引擎產不出自然的語調，
+      唸「あめ」就正常了 —— 這是唸起來很機械的根本原因，不是速度參數的問題。
+   2. 假名綁在有意義的詞上比孤立記得牢，片假名尤其有效，幾乎都是認得的外來語。
+   [單字, 羅馬字, 中文, emoji, 備註]                                       */
+const WORDS = {
+  'あ':['あめ','ame','雨','🌧️'],        'い':['いぬ','inu','狗','🐕'],
+  'う':['うみ','umi','海','🌊'],         'え':['えき','eki','車站','🚉'],
+  'お':['おかね','okane','錢','💰'],      'か':['かさ','kasa','傘','☂️'],
+  'き':['きのこ','kinoko','香菇','🍄'],   'く':['くつ','kutsu','鞋子','👟'],
+  'け':['けむり','kemuri','煙','💨'],     'こ':['こども','kodomo','小孩','🧒'],
+  'さ':['さかな','sakana','魚','🐟'],     'し':['しま','shima','島','🏝️'],
+  'す':['すし','sushi','壽司','🍣'],      'せ':['せかい','sekai','世界','🌍'],
+  'そ':['そら','sora','天空','☁️'],       'た':['たまご','tamago','蛋','🥚'],
+  'ち':['ちず','chizu','地圖','🗺️'],      'つ':['つき','tsuki','月亮','🌙'],
+  'て':['てがみ','tegami','信','✉️'],     'と':['とり','tori','鳥','🐦'],
+  'な':['なつ','natsu','夏天','🌻'],      'に':['にく','niku','肉','🍖'],
+  'ぬ':['ぬの','nuno','布','🧵'],         'ね':['ねこ','neko','貓','🐱'],
+  'の':['のり','nori','海苔','🍙'],       'は':['はな','hana','花','🌸'],
+  'ひ':['ひと','hito','人','🧍'],         'ふ':['ふね','fune','船','🚢'],
+  'へ':['へや','heya','房間','🚪'],       'ほ':['ほし','hoshi','星星','⭐'],
+  'ま':['まど','mado','窗戶','🪟'],       'み':['みず','mizu','水','💧'],
+  'む':['むし','mushi','蟲','🐛'],        'め':['めがね','megane','眼鏡','👓'],
+  'も':['もり','mori','森林','🌲'],       'や':['やま','yama','山','⛰️'],
+  'ゆ':['ゆき','yuki','雪','❄️'],         'よ':['よる','yoru','夜晚','🌃'],
+  'ら':['らくだ','rakuda','駱駝','🐫'],   'り':['りんご','ringo','蘋果','🍎'],
+  'る':['るす','rusu','不在家','🏠'],     'れ':['れきし','rekishi','歷史','📜'],
+  'ろ':['ろく','roku','六','6️⃣'],        'わ':['わたし','watashi','我','🙋'],
+  'を':[null,null,null,'〰️','只當助詞用，不會單獨成詞。唸法跟 お 一樣'],
+  'ん':['ほん','hon','書','📖','ん 不會出現在字首，只會接在別的音後面'],
+
+  'ア':['アイス','aisu','冰淇淋','🍦'],       'イ':['イタリア','itaria','義大利','🇮🇹'],
+  'ウ':['ウール','ūru','羊毛','🧶'],          'エ':['エアコン','eakon','冷氣','🧊'],
+  'オ':['オレンジ','orenji','柳橙','🍊'],     'カ':['カメラ','kamera','相機','📷'],
+  'キ':['キロ','kiro','公斤','⚖️'],           'ク':['クラス','kurasu','班級','🏫'],
+  'ケ':['ケーキ','kēki','蛋糕','🍰'],         'コ':['コーヒー','kōhī','咖啡','☕'],
+  'サ':['サラダ','sarada','沙拉','🥗'],       'シ':['シャツ','shatsu','襯衫','👕'],
+  'ス':['スープ','sūpu','湯','🍲'],           'セ':['セーター','sētā','毛衣','🧥'],
+  'ソ':['ソファ','sofa','沙發','🛋️'],         'タ':['タクシー','takushī','計程車','🚕'],
+  'チ':['チーズ','chīzu','起司','🧀'],        'ツ':['ツアー','tsuā','旅遊團','🧳'],
+  'テ':['テレビ','terebi','電視','📺'],       'ト':['トマト','tomato','番茄','🍅'],
+  'ナ':['ナイフ','naifu','刀子','🔪'],        'ニ':['ニュース','nyūsu','新聞','📰'],
+  'ヌ':['ヌードル','nūdoru','麵','🍜'],       'ネ':['ネクタイ','nekutai','領帶','👔'],
+  'ノ':['ノート','nōto','筆記本','📓'],       'ハ':['ハム','hamu','火腿','🥓'],
+  'ヒ':['ヒーター','hītā','暖氣','🔥'],       'フ':['フォーク','fōku','叉子','🍴'],
+  'ヘ':['ヘルメット','herumetto','安全帽','⛑️'], 'ホ':['ホテル','hoteru','飯店','🏨'],
+  'マ':['マスク','masuku','口罩','😷'],       'ミ':['ミルク','miruku','牛奶','🥛'],
+  'ム':['ムービー','mūbī','電影','🎬'],       'メ':['メニュー','menyū','菜單','📋'],
+  'モ':['モデル','moderu','模特兒','💃'],     'ヤ':['ヤクルト','yakuruto','養樂多','🥤'],
+  'ユ':['ユーロ','yūro','歐元','💶'],         'ヨ':['ヨガ','yoga','瑜珈','🧘'],
+  'ラ':['ラーメン','rāmen','拉麵','🍜'],      'リ':['リモコン','rimokon','遙控器','🎛️'],
+  'ル':['ルール','rūru','規則','📏'],         'レ':['レモン','remon','檸檬','🍋'],
+  'ロ':['ロボット','robotto','機器人','🤖'],  'ワ':['ワイン','wain','葡萄酒','🍷'],
+  'ヲ':[null,null,null,'〰️','助詞專用，片假名幾乎不會用到'],
+  'ン':['パン','pan','麵包','🍞','ン 不會出現在字首，只會接在別的音後面'],
+};
+
 /* 打字時可接受的其他拼法 */
 const ALT = {
   shi:['si'], chi:['ti'], tsu:['tu'], fu:['hu'], ji:['zi'], wo:['o'], n:['nn'],
@@ -970,6 +1040,7 @@ for (const set of ['base','daku','yoon']) {
           strokes: script === 'h' ? hs : ks,
           lore: LORE[kana] || null,
           mnemo: MNEMO[kana] || null,
+          word: WORDS[kana] || null,
           accept: [romaji.replace(/\s*\(.+\)/,'')].concat(ALT[romaji] || []),
         };
         it.accept = [...new Set(it.accept.map(s => s.toLowerCase()))];
@@ -1133,21 +1204,31 @@ if (CAN_SPEAK) {
   setTimeout(refreshVoice, 500);
   setTimeout(refreshVoice, 2000);
 }
-function speak(text){
+function speakParts(parts){
   if (!CAN_SPEAK) return;
   if (!jaVoice) refreshVoice();
   try {
     speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    if (jaVoice) u.voice = jaVoice;
-    u.lang = jaVoice ? jaVoice.lang : 'ja-JP';
-    u.volume = 1;      // 最大音量
-    u.rate = 0.55;     // 慢一點，單一個音節唸太快會糊掉
-    u.pitch = 1;
-    speechSynthesis.speak(u);
+    for (const p of parts) {          // 連續排隊，中間不 cancel，自然會有停頓
+      const u = new SpeechSynthesisUtterance(p.t);
+      if (jaVoice) u.voice = jaVoice;
+      u.lang = jaVoice ? jaVoice.lang : 'ja-JP';
+      u.volume = 1;                   // 最大音量
+      u.rate = p.r;
+      u.pitch = 1;
+      speechSynthesis.speak(u);
+    }
   } catch(e){}
 }
-function autoSpeak(text){ if (S.autoSpeak !== false) speak(text); }
+/* 先唸假名，再唸例詞。
+   單一個假名只有 0.2 秒，語音引擎產不出語調，怎麼調速度都會很機械；
+   接一個真的詞才唸得出正常的抑揚頓挫。 */
+function speakItem(it){
+  const w = it && it.word;
+  if (w && w[0]) speakParts([{t:it.kana, r:0.75}, {t:w[0], r:0.85}]);
+  else if (it) speakParts([{t:it.kana, r:0.75}]);
+}
+function autoSpeak(it){ if (S.autoSpeak !== false) speakItem(it); }
 
 /* ═══ 手寫格 ═══════════════════════════════════════════════════════════ */
 function makePad(canvas, infoEl){
@@ -1527,6 +1608,10 @@ function renderLearn(){
     lore += '<div class="lore-row mnemo"><span class="k">聯想</span><span class="v">'
       + '<span class="emo">' + it.mnemo[0] + '</span>' + esc(it.mnemo[1]) + '</span></div>';
   }
+  if (it.word) {
+    lore += '<div class="lore-row word"><span class="k">例詞</span><span class="v">'
+      + wordHTML(it) + '</span></div>';
+  }
   if (it.lore) {
     lore += '<div class="lore-row"><span class="k">字源</span><span class="v">'
       + '<span class="src" lang="ja">' + it.lore[0] + '</span>' + esc(it.lore[1]) + '</span></div>';
@@ -1548,14 +1633,17 @@ function renderLearn(){
   $('#learn-prev').disabled = L.i === 0;
   $('#learn-next').innerHTML = (L.i === L.lesson.chars.length - 1)
     ? '學完了，開始測驗 →' : '下一個 →';
+  const w = it.word;
+  $('#learn-sound').innerHTML = '🔊 <span lang="ja">' + it.kana
+    + (w && w[0] ? '・' + w[0] : '') + '</span>';
   learnPad.set(it, true);
-  autoSpeak(it.kana);
+  autoSpeak(it);
 }
-$('#learn-sound').addEventListener('click', () => speak(L.lesson.chars[L.i].kana));
+$('#learn-sound').addEventListener('click', () => speakItem(L.lesson.chars[L.i]));
 $('#auto-speak').addEventListener('click', () => {
   S.autoSpeak = S.autoSpeak === false; save();
   $('#auto-speak').setAttribute('aria-pressed', String(S.autoSpeak !== false));
-  if (S.autoSpeak !== false && L) speak(L.lesson.chars[L.i].kana);
+  if (S.autoSpeak !== false && L) speakItem(L.lesson.chars[L.i]);
 });
 $('#learn-prev').addEventListener('click', () => { if (L.i > 0) { L.i--; renderLearn(); } });
 $('#learn-next').addEventListener('click', () => {
@@ -1678,6 +1766,22 @@ function nextQuestion(){
   }
 }
 
+/* 例詞的一行。把目標假名在詞裡標成藍色，一眼看得出它藏在哪 */
+function wordHTML(it){
+  const w = it.word;
+  if (!w) return '';
+  if (!w[0]) return '<span class="cav">' + esc(w[4] || '') + '</span>';
+  const marked = w[0].split(it.kana).join('<mark>' + it.kana + '</mark>');
+  return '<span class="emo">' + w[3] + '</span>'
+    + '<span class="wd" lang="ja">' + marked + '</span>'
+    + '<span class="rw">' + esc(w[1]) + '</span>' + esc(w[2])
+    + (w[4] ? '<span class="cav">' + esc(w[4]) + '</span>' : '');
+}
+function wordLine(item){
+  const w = item.word;
+  if (!w || !w[0]) return '';
+  return '<span class="tip">例詞 ' + wordHTML(item) + '</span>';
+}
 function mnemoLine(item){
   if (!item.mnemo) return '';
   return '<span class="tip"><span class="emo">' + item.mnemo[0] + '</span>' + esc(item.mnemo[1]) + '</span>';
@@ -1687,7 +1791,7 @@ function loreLine(item){
   return '<span class="tip">字源 <span class="src" lang="ja">' + item.lore[0] + '</span>'
     + esc(item.lore[1]) + '</span>';
 }
-function hintLines(item){ return mnemoLine(item) + loreLine(item); }
+function hintLines(item){ return mnemoLine(item) + wordLine(item) + loreLine(item); }
 function stamp(ok){
   const el = $('#stamp');
   el.textContent = ok ? '○' : '×';
@@ -1701,7 +1805,7 @@ function answer(ok, chosenId){
   grade(item.id, ok);
   if (ok) Q.right++; else { Q.wrong++; if (!Q.missed.includes(item.id)) Q.missed.push(item.id); }
   stamp(ok);
-  autoSpeak(item.kana);   // 每答完一題就聽一次，把字形和聲音綁在一起
+  autoSpeak(item);   // 每答完一題就聽一次，把字形和聲音綁在一起
 
   if (Q.current.kind === 'recog' || Q.current.kind === 'recall') {
     $$('#answers .ans').forEach(b => {

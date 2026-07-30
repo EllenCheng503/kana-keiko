@@ -1,5 +1,5 @@
 /* 離線快取。改了 index.html 之後把 CACHE 的版號 +1，使用者下次開就會拿到新版。 */
-const CACHE = 'kana-keiko-v2';
+const CACHE = 'kana-keiko-v3';
 const ASSETS = [
   './',
   './index.html',
