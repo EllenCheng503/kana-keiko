@@ -1,0 +1,11 @@
+.DS_Store
+Thumbs.db
+
+# 之後接 Capacitor 打包 iOS 時會產生的東西
+node_modules/
+dist/
+www/
+ios/App/Pods/
+ios/App/build/
+*.xcuserstate
+*.xcuserdatad/
