@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#C41E3A">
+  <meta name="description" content="假名大師 — 免費學習日語五十音辨識與書寫">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>假名大師 Kana Master</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ==================== APP HEADER ==================== -->
+  <header class="app-header">
+    <div class="header-left">
+      <span class="app-logo">🇯🇵</span>
+      <h1 class="app-title">假名大師</h1>
+    </div>
+    <div class="header-right">
+      <div class="streak-badge" id="headerStreak">
+        <span class="streak-icon">🔥</span>
+        <span class="streak-count" id="headerStreakCount">0</span>
+      </div>
+      <button class="btn-icon" id="btnThemeToggle" aria-label="切換深色/淺色模式">
+        🌙
+      </button>
+    </div>
+  </header>
+
+  <!-- ==================== MAIN CONTENT ==================== -->
+  <main class="app-main">
+
+    <!-- ========== HOME SCREEN ========== -->
+    <section class="screen active" id="home">
+      <div class="welcome-section">
+        <div class="level-badge" id="homeLevelBadge">
+          <span class="level-number" id="homeLevelNum">1</span>
+          <span class="level-label">級</span>
+        </div>
+        <h2 class="welcome-text" id="welcomeText">開始你的五十音之旅！</h2>
+        <div class="xp-bar-container">
+          <div class="progress-bar">
+            <div class="progress-fill" id="homeXPBar" style="width: 0%"></div>
+          </div>
+          <span class="xp-text" id="homeXPText">0 / 100 XP</span>
+        </div>
+      </div>
+
+      <div class="stats-row" id="homeStatsRow">
+        <div class="stat-card">
+          <span class="stat-number" id="statDue">0</span>
+          <span class="stat-label">待複習</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-number" id="statDone">0</span>
+          <span class="stat-label">今日完成</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-number" id="statAccuracy">--%</span>
+          <span class="stat-label">正確率</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-number" id="statLearned">0</span>
+          <span class="stat-label">已學會</span>
+        </div>
+      </div>
+
+      <div class="action-buttons">
+        <button class="btn btn-primary btn-lg action-btn" id="btnStartLearn">
+          <span class="action-icon">📖</span>
+          <span class="action-text">
+            <strong>學習新假名</strong>
+            <small>逐步認識五十音</small>
+          </span>
+        </button>
+        <button class="btn btn-primary btn-lg action-btn" id="btnStartReview" style="--btn-hue: 150;">
+          <span class="action-icon">🔄</span>
+          <span class="action-text">
+            <strong>開始複習</strong>
+            <small id="reviewDueText">0 個待複習</small>
+          </span>
+        </button>
+        <button class="btn btn-primary btn-lg action-btn" id="btnStartQuiz" style="--btn-hue: 220;">
+          <span class="action-icon">✅</span>
+          <span class="action-text">
+            <strong>測驗挑戰</strong>
+            <small>測試你的記憶</small>
+          </span>
+        </button>
+        <button class="btn btn-primary btn-lg action-btn" id="btnStartWrite" style="--btn-hue: 280;">
+          <span class="action-icon">✍️</span>
+          <span class="action-text">
+            <strong>書寫練習</strong>
+            <small>手寫假名</small>
+          </span>
+        </button>
+      </div>
+
+      <!-- Mini Kana Grid Preview -->
+      <div class="card home-grid-preview">
+        <h3>📊 五十音進度</h3>
+        <div class="mini-grid" id="homeMiniGrid">
+          <!-- Filled by JS -->
+        </div>
+        <button class="btn btn-outline btn-sm" id="btnViewProgress">查看完整進度 →</button>
+      </div>
+    </section>
+
+    <!-- ========== LEARN SCREEN ========== -->
+    <section class="screen" id="learn">
+      <!-- Kana type selector -->
+      <div class="kana-type-selector">
+        <button class="pill-tab active" data-kana-type="hiragana">平假名</button>
+        <button class="pill-tab" data-kana-type="katakana">片假名</button>
+      </div>
+
+      <!-- Row selector -->
+      <div class="row-selector" id="rowSelector">
+        <!-- Filled by JS with pill tabs for each row -->
+      </div>
+
+      <!-- Learn Card -->
+      <div class="learn-card-container">
+        <div class="learn-card" id="learnCard">
+          <div class="learn-card-inner">
+            <!-- Front -->
+            <div class="learn-card-front">
+              <div class="kana-display" id="learnKana">あ</div>
+              <div class="romaji-display" id="learnRomaji">a</div>
+              <button class="btn btn-icon speak-btn" id="btnSpeak" aria-label="朗讀">🔊</button>
+            </div>
+            <!-- Back -->
+            <div class="learn-card-back">
+              <div class="kana-display kana-small" id="learnKanaBack">あ</div>
+              <div class="romaji-display" id="learnRomajiBack">a</div>
+              <div class="mnemonic-box" id="learnMnemonic">
+                <span class="mnemonic-label">記憶法 💡</span>
+                <p class="mnemonic-text">A person bowing and Apologizing</p>
+              </div>
+              <div class="stroke-info" id="learnStrokeInfo">
+                <span>筆畫數：<strong id="learnStrokeCount">3</strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-hint">
+          <span>👆 點擊卡片翻轉</span>
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <div class="learn-nav">
+        <button class="btn btn-icon nav-arrow" id="btnPrevKana" aria-label="上一個">◀</button>
+        <span class="learn-counter" id="learnCounter">1 / 5</span>
+        <button class="btn btn-icon nav-arrow" id="btnNextKana" aria-label="下一個">▶</button>
+      </div>
+
+      <!-- SRS Review Buttons -->
+      <div class="srs-buttons" id="srsButtons">
+        <p class="srs-prompt">你記住了嗎？</p>
+        <div class="srs-btn-row">
+          <button class="btn srs-btn srs-again" data-quality="1">
+            <span class="srs-label">重來</span>
+            <span class="srs-hint">完全忘了</span>
+          </button>
+          <button class="btn srs-btn srs-hard" data-quality="3">
+            <span class="srs-label">困難</span>
+            <span class="srs-hint">想很久</span>
+          </button>
+          <button class="btn srs-btn srs-good" data-quality="4">
+            <span class="srs-label">不錯</span>
+            <span class="srs-hint">想了一下</span>
+          </button>
+          <button class="btn srs-btn srs-easy" data-quality="5">
+            <span class="srs-label">簡單</span>
+            <span class="srs-hint">秒答</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== QUIZ SCREEN ========== -->
+    <section class="screen" id="quiz">
+      <!-- Quiz Setup -->
+      <div class="quiz-setup" id="quizSetup">
+        <h2>選擇測驗模式</h2>
+
+        <div class="quiz-mode-cards">
+          <button class="card quiz-mode-card" data-mode="kana-to-romaji">
+            <span class="mode-icon">🔤</span>
+            <strong>假名 → 拼音</strong>
+            <small>看假名，選正確拼音</small>
+          </button>
+          <button class="card quiz-mode-card" data-mode="romaji-to-kana">
+            <span class="mode-icon">🎯</span>
+            <strong>拼音 → 假名</strong>
+            <small>看拼音，選正確假名</small>
+          </button>
+          <button class="card quiz-mode-card" data-mode="listening">
+            <span class="mode-icon">👂</span>
+            <strong>聽力辨識</strong>
+            <small>聽發音，選正確假名</small>
+          </button>
+          <button class="card quiz-mode-card" data-mode="kana-to-kana">
+            <span class="mode-icon">🔄</span>
+            <strong>平↔片 配對</strong>
+            <small>平假名與片假名互轉</small>
+          </button>
+        </div>
+
+        <div class="quiz-settings">
+          <label class="setting-row">
+            <span>測驗範圍</span>
+            <select id="quizScope" class="select-input">
+              <option value="learned">已學過的假名</option>
+              <option value="hiragana">所有平假名</option>
+              <option value="katakana">所有片假名</option>
+              <option value="all">全部</option>
+            </select>
+          </label>
+          <label class="setting-row">
+            <span>題數</span>
+            <select id="quizCount" class="select-input">
+              <option value="10">10 題</option>
+              <option value="20" selected>20 題</option>
+              <option value="46">46 題（全行）</option>
+            </select>
+          </label>
+        </div>
+
+        <button class="btn btn-primary btn-lg" id="btnStartQuizGo" style="width:100%; margin-top: 16px;">
+          開始測驗 🚀
+        </button>
+      </div>
+
+      <!-- Quiz In Progress -->
+      <div class="quiz-active hidden" id="quizActive">
+        <div class="quiz-header">
+          <div class="quiz-progress-bar">
+            <div class="progress-bar">
+              <div class="progress-fill" id="quizProgressBar" style="width: 0%"></div>
+            </div>
+          </div>
+          <div class="quiz-score-row">
+            <span class="quiz-counter" id="quizCounter">1 / 20</span>
+            <span class="quiz-score" id="quizScore">✅ 0 ❌ 0</span>
+          </div>
+        </div>
+
+        <!-- Question -->
+        <div class="quiz-question" id="quizQuestion">
+          <div class="quiz-prompt" id="quizPrompt">這是什麼假名？</div>
+          <div class="quiz-stimulus" id="quizStimulus">
+            <span class="quiz-kana" id="quizKana">あ</span>
+          </div>
+          <button class="btn btn-icon speak-btn" id="btnQuizSpeak" aria-label="朗讀">🔊</button>
+        </div>
+
+        <!-- Answer Options -->
+        <div class="quiz-options" id="quizOptions">
+          <button class="quiz-option" data-index="0">a</button>
+          <button class="quiz-option" data-index="1">ka</button>
+          <button class="quiz-option" data-index="2">sa</button>
+          <button class="quiz-option" data-index="3">ta</button>
+        </div>
+
+        <!-- Feedback Overlay -->
+        <div class="quiz-feedback hidden" id="quizFeedback">
+          <div class="feedback-icon" id="feedbackIcon">✓</div>
+          <div class="feedback-correct-answer" id="feedbackAnswer"></div>
+          <div class="feedback-mnemonic hidden" id="feedbackMnemonic"></div>
+          <button class="btn btn-primary" id="btnQuizNext">下一題 →</button>
+        </div>
+      </div>
+
+      <!-- Quiz Results -->
+      <div class="quiz-results hidden" id="quizResults">
+        <div class="results-header">
+          <span class="results-icon" id="resultsIcon">🎉</span>
+          <h2 id="resultsTitle">做得好！</h2>
+        </div>
+        <div class="results-stats">
+          <div class="result-stat">
+            <span class="result-number" id="resultCorrect">0</span>
+            <span class="result-label">答對</span>
+          </div>
+          <div class="result-stat">
+            <span class="result-number" id="resultWrong">0</span>
+            <span class="result-label">答錯</span>
+          </div>
+          <div class="result-stat">
+            <span class="result-number" id="resultAccuracy">0%</span>
+            <span class="result-label">正確率</span>
+          </div>
+          <div class="result-stat">
+            <span class="result-number" id="resultXP">+0</span>
+            <span class="result-label">XP</span>
+          </div>
+        </div>
+        <div class="results-mistakes hidden" id="resultsMistakes">
+          <h3>需要加強的假名：</h3>
+          <div class="mistakes-list" id="mistakesList"></div>
+        </div>
+        <div class="results-achievements hidden" id="resultsAchievements">
+          <h3>🏆 新成就！</h3>
+          <div class="achievement-list" id="achievementList"></div>
+        </div>
+        <div class="results-actions">
+          <button class="btn btn-primary btn-lg" id="btnQuizRetry">再測一次</button>
+          <button class="btn btn-outline btn-lg" id="btnQuizHome">回首頁</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== WRITE SCREEN ========== -->
+    <section class="screen" id="write">
+      <div class="write-header">
+        <div class="write-prompt">
+          <span class="write-romaji" id="writeRomaji">a</span>
+          <span class="write-hint-text">寫出這個假名</span>
+        </div>
+        <div class="write-reference" id="writeReference">
+          <span class="reference-char" id="writeRefChar">あ</span>
+        </div>
+      </div>
+
+      <div class="canvas-container">
+        <canvas id="drawCanvas" width="300" height="300"></canvas>
+        <div class="canvas-grid"></div>
+        <div class="stroke-counter" id="strokeCounter">
+          筆畫：<span id="currentStrokes">0</span> / <span id="expectedStrokes">3</span>
+        </div>
+      </div>
+
+      <div class="write-tools">
+        <button class="btn btn-icon" id="btnClearCanvas" aria-label="清除">🗑️</button>
+        <button class="btn btn-icon" id="btnUndoStroke" aria-label="復原">↩️</button>
+        <button class="btn btn-icon" id="btnShowHint" aria-label="提示">💡</button>
+        <button class="btn btn-primary" id="btnCheckWrite">確認 ✓</button>
+      </div>
+
+      <div class="write-nav">
+        <button class="btn btn-icon nav-arrow" id="btnPrevWrite" aria-label="上一個">◀</button>
+        <span class="write-counter" id="writeCounter">1 / 5</span>
+        <button class="btn btn-icon nav-arrow" id="btnNextWrite" aria-label="下一個">▶</button>
+      </div>
+
+      <!-- Write mode selector -->
+      <div class="write-mode-selector">
+        <button class="pill-tab active" data-write-type="hiragana">平假名</button>
+        <button class="pill-tab" data-write-type="katakana">片假名</button>
+      </div>
+      <div class="row-selector" id="writeRowSelector">
+        <!-- Filled by JS -->
+      </div>
+    </section>
+
+    <!-- ========== PROGRESS SCREEN ========== -->
+    <section class="screen" id="progress">
+      <!-- Level & XP -->
+      <div class="card progress-level-card">
+        <div class="level-display">
+          <div class="level-badge level-badge-lg" id="progressLevelBadge">
+            <span class="level-number" id="progressLevelNum">1</span>
+            <span class="level-label">級</span>
+          </div>
+          <div class="level-info">
+            <h3 id="progressLevelTitle">初學者</h3>
+            <div class="progress-bar">
+              <div class="progress-fill" id="progressXPBar" style="width: 0%"></div>
+            </div>
+            <span class="xp-text" id="progressXPText">0 / 100 XP</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Streak & Stats -->
+      <div class="stats-row">
+        <div class="stat-card stat-streak">
+          <span class="stat-icon">🔥</span>
+          <span class="stat-number" id="progressStreak">0</span>
+          <span class="stat-label">天連勝</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">📝</span>
+          <span class="stat-number" id="progressTotalReviews">0</span>
+          <span class="stat-label">總複習</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">🎯</span>
+          <span class="stat-number" id="progressAccuracy">--%</span>
+          <span class="stat-label">正確率</span>
+        </div>
+      </div>
+
+      <!-- Kana Mastery Grid -->
+      <div class="card mastery-grid-card">
+        <div class="mastery-header">
+          <h3>五十音掌握度</h3>
+          <div class="mastery-tabs">
+            <button class="pill-tab active" data-grid-type="hiragana">平假名</button>
+            <button class="pill-tab" data-grid-type="katakana">片假名</button>
+          </div>
+        </div>
+        <div class="mastery-legend">
+          <span class="legend-item"><span class="legend-dot mastery-0"></span>未學</span>
+          <span class="legend-item"><span class="legend-dot mastery-1"></span>學習中</span>
+          <span class="legend-item"><span class="legend-dot mastery-2"></span>複習中</span>
+          <span class="legend-item"><span class="legend-dot mastery-3"></span>已掌握</span>
+        </div>
+        <div class="mastery-grid" id="masteryGrid">
+          <!-- Filled by JS — 5x10 grid of kana cells -->
+        </div>
+      </div>
+
+      <!-- Achievements -->
+      <div class="card achievements-card">
+        <h3>🏆 成就</h3>
+        <div class="achievements-grid" id="achievementsGrid">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ==================== BOTTOM TAB BAR ==================== -->
+  <nav class="tab-bar">
+    <button class="tab-item active" data-screen="home">
+      <span class="tab-icon">🏠</span>
+      <span class="tab-label">首頁</span>
+    </button>
+    <button class="tab-item" data-screen="learn">
+      <span class="tab-icon">📖</span>
+      <span class="tab-label">學習</span>
+    </button>
+    <button class="tab-item" data-screen="quiz">
+      <span class="tab-icon">✅</span>
+      <span class="tab-label">測驗</span>
+    </button>
+    <button class="tab-item" data-screen="write">
+      <span class="tab-icon">✍️</span>
+      <span class="tab-label">書寫</span>
+    </button>
+    <button class="tab-item" data-screen="progress">
+      <span class="tab-icon">📊</span>
+      <span class="tab-label">進度</span>
+    </button>
+  </nav>
+
+  <!-- ==================== MODAL ==================== -->
+  <div class="modal hidden" id="modal">
+    <div class="modal-backdrop" id="modalBackdrop"></div>
+    <div class="modal-content" id="modalContent">
+      <button class="btn-icon modal-close" id="modalClose" aria-label="關閉">✕</button>
+      <div class="modal-body" id="modalBody">
+        <!-- Dynamic content -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TOAST ==================== -->
+  <div class="toast hidden" id="toast">
+    <span class="toast-icon" id="toastIcon">✓</span>
+    <span class="toast-text" id="toastText">成功！</span>
+  </div>
+
+  <!-- ==================== CONFETTI CONTAINER ==================== -->
+  <div class="confetti-container" id="confettiContainer"></div>
+
+  <!-- ==================== SCRIPTS ==================== -->
+  <script src="js/data.js"></script>
+  <script src="js/srs.js"></script>
+  <script src="js/progress.js"></script>
+  <script src="js/quiz.js"></script>
+  <script src="js/draw.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
