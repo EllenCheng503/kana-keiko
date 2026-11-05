@@ -1,10 +1,15 @@
 /**
- * engine.js — 記憶科學引擎 (SRS 遺忘曲線 + 弱點雷達 + 雙語音合成 + 資料永續化)
+ * engine.js — 記憶科學與永續儲存引擎 (v4.0 Apple HIG Edition)
+ * - 即時本機自動儲存 (localStorage) ＋ 舊版資料無縫遷移
+ * - 斷點續學快照 (Continuity Session Snapshot)：重新整理連半途進度都不遺失
+ * - 跨裝置短同步碼 (One-Tap Sync Code) ＋ JSON 備份雙重保障
+ * - 艾賓浩斯 6 階記憶排程 ＋ 易混淆雙胞胎智慧干擾項生成
  */
 (function () {
   'use strict';
 
   const STORAGE_KEY = 'kana-keiko-v3';
+  const SESSION_KEY = 'kana-keiko-continuity';
   const MIN = 60 * 1000;
   const HOUR = 60 * MIN;
   const DAY = 24 * HOUR;
@@ -13,23 +18,17 @@
 
   function todayStr() {
     const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 
   function yesterdayStr() {
     const d = new Date(Date.now() - DAY);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
 
   function defaultState() {
     return {
-      version: 3,
+      version: 4,
       cards: {},       // { [item.id]: { level, due, seen, ok, fail, last } }
       doneLessons: [], // ['hb0', ...]
       streak: 0,
@@ -37,7 +36,7 @@
       todayDate: todayStr(),
       todayCount: 0,
       dailyGoal: 15,
-      lastBackup: 0,
+      lastSavedAt: 0,
       settings: {
         autoSpeak: true,
         soundFx: true,
@@ -63,10 +62,8 @@
     }
   }
 
-  // 自動遷移舊版進度（確保曾經學過的字絕不遺失）
   function migrateLegacyProgress(target) {
     try {
-      // 1) 舊版 kana-keiko 多帳號或單帳號格式
       ['kana-keiko', 'kana-keiko-v2', 'kana-keiko-v1'].forEach(key => {
         const raw = localStorage.getItem(key);
         if (!raw) return;
@@ -99,7 +96,6 @@
         }
       });
 
-      // 2) 舊版 kana-master-srs 格式
       const oldSrs = localStorage.getItem('kana-master-srs');
       if (oldSrs) {
         const cards = JSON.parse(oldSrs);
@@ -120,7 +116,7 @@
         });
       }
     } catch (e) {
-      console.warn('Legacy migration skipped:', e);
+      console.warn('Migration skipped:', e);
     }
   }
 
@@ -145,7 +141,6 @@
       state = defaultState();
     }
 
-    // 跨日重置今日計數，並檢查連勝是否中斷
     const t = todayStr();
     if (state.todayDate !== t) {
       state.todayDate = t;
@@ -160,9 +155,10 @@
   function save(silent) {
     if (!storageAvailable) return;
     try {
+      state.lastSavedAt = Date.now();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       if (!silent) {
-        saveListeners.forEach(fn => { try { fn(); } catch (_) {} });
+        saveListeners.forEach(fn => { try { fn(state.lastSavedAt); } catch (_) {} });
       }
     } catch (e) {
       console.warn('Save failed:', e);
@@ -173,6 +169,44 @@
     saveListeners.push(fn);
   }
 
+  // ==================== 斷點續學快照 (Apple Continuity) ====================
+  function saveContinuitySession(snapshot) {
+    if (!storageAvailable) return;
+    try {
+      if (!snapshot) {
+        localStorage.removeItem(SESSION_KEY);
+      } else {
+        localStorage.setItem(SESSION_KEY, JSON.stringify({
+          ...snapshot,
+          savedAt: Date.now()
+        }));
+      }
+    } catch (_) {}
+  }
+
+  function getContinuitySession() {
+    if (!storageAvailable) return null;
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      if (!raw) return null;
+      const snap = JSON.parse(raw);
+      // 保留 48 小時內的未完成課堂快照
+      if (!snap || (Date.now() - (snap.savedAt || 0)) > 2 * DAY) {
+        localStorage.removeItem(SESSION_KEY);
+        return null;
+      }
+      return snap;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function clearContinuitySession() {
+    if (!storageAvailable) return;
+    try { localStorage.removeItem(SESSION_KEY); } catch (_) {}
+  }
+
+  // ==================== 學習行為與 SRS 排程 ====================
   function touchStudyActivity(incrementCount = 1) {
     const t = todayStr();
     if (state.todayDate !== t) {
@@ -191,7 +225,6 @@
     }
   }
 
-  // 初次在學習卡接觸某個假名（建立初步記憶痕跡）
   function markIntroduced(itemId) {
     if (!state.cards[itemId]) {
       state.cards[itemId] = {
@@ -202,11 +235,11 @@
         fail: 0,
         last: Date.now()
       };
-      save(true);
+      touchStudyActivity(0);
+      save(false);
     }
   }
 
-  // 記錄測驗或手寫的主動提取結果
   function recordAnswer(itemId, isCorrect) {
     const now = Date.now();
     let c = state.cards[itemId];
@@ -230,7 +263,7 @@
   }
 
   function markLessonComplete(lessonId) {
-    if (!state.doneLessons.includes(lessonId)) {
+    if (lessonId && !state.doneLessons.includes(lessonId)) {
       state.doneLessons.push(lessonId);
     }
     touchStudyActivity(0);
@@ -241,7 +274,6 @@
     return state.cards[itemId] || null;
   }
 
-  // 計算單字弱點指數（錯誤率權重最高 + 逾期天數 + 低熟練度）
   function getWeaknessScore(item) {
     const c = state.cards[item.id];
     if (!c) return 0;
@@ -253,13 +285,8 @@
 
   function getOverviewStats() {
     const allCards = Object.entries(state.cards);
-    let stageNew = 0;    // Lv 1
-    let stageShort = 0;  // Lv 2-3
-    let stageMid = 0;    // Lv 4-5
-    let stageLong = 0;   // Lv 6
-    let dueCount = 0;
-    let totalSeen = 0;
-    let totalOk = 0;
+    let stageNew = 0, stageShort = 0, stageMid = 0, stageLong = 0;
+    let dueCount = 0, totalSeen = 0, totalOk = 0;
     const now = Date.now();
 
     allCards.forEach(([id, c]) => {
@@ -302,7 +329,8 @@
       hiraBaseTotal,
       kataBaseLearned,
       kataBaseTotal,
-      weakItems
+      weakItems,
+      lastSavedAt: state.lastSavedAt
     };
   }
 
@@ -322,7 +350,6 @@
     return a;
   }
 
-  // 智慧干擾項生成：優先抓「長得像的易混淆字」＋「同課或已學過的字」，絕不亂湊無效選項
   function getSmartDistractors(target, contextChars = [], count = 3) {
     const picked = [];
     const usedRomaji = new Set([target.romaji]);
@@ -336,22 +363,17 @@
       picked.push(cand);
     };
 
-    // 1. 優先放入視覺易混淆雙胞胎
     shuffle(target.confusables || []).forEach(k => {
       const cand = window.KanaDB.BY_KANA[k];
       if (cand && cand.script === target.script) tryAdd(cand);
     });
-
-    // 2. 放入本課其他字
     shuffle(contextChars).forEach(tryAdd);
 
-    // 3. 放入已學過的同類假名
     const learnedSame = window.KanaDB.ITEMS.filter(
       it => it.script === target.script && it.set === target.set && state.cards[it.id]
     );
     shuffle(learnedSame).forEach(tryAdd);
 
-    // 4. 兜底同組假名
     const fallback = window.KanaDB.ITEMS.filter(
       it => it.script === target.script && it.set === target.set
     );
@@ -360,64 +382,52 @@
     return picked;
   }
 
-  // 建立多模態科學測驗題組
+  function makeQuestion(item, type, contextPool) {
+    const distractors = getSmartDistractors(item, contextPool, 3);
+    const choices = shuffle([item, ...distractors]);
+    let wordMasked = null;
+    if (type === 'word-fill' && item.word && item.word[0]) {
+      wordMasked = item.word[0].replace(item.kana, '＿');
+    }
+    return {
+      item,
+      type,
+      choices,
+      wordMasked,
+      retried: false
+    };
+  }
+
   function buildQuizDeck(targetItems, mode = 'lesson') {
     const questions = [];
     const pool = targetItems.slice();
 
     if (mode === 'lesson') {
-      // 每課 5 字，進行 2 輪交錯提取（第 1 輪：聽音/看字辨音；第 2 輪：單字實戰/看音辨字）
-      const round1 = shuffle(pool).map((item, idx) => {
-        const qType = (idx % 2 === 0) ? 'kana-to-romaji' : 'audio-to-kana';
-        return makeQuestion(item, qType, pool);
-      });
-      const round2 = shuffle(pool).map((item) => {
+      const round1 = shuffle(pool).map((item, idx) =>
+        makeQuestion(item, idx % 2 === 0 ? 'kana-to-romaji' : 'audio-to-kana', pool)
+      );
+      const round2 = shuffle(pool).map(item => {
         const hasWord = item.word && item.word[0] && item.word[0].includes(item.kana) && item.word[0].length > 1;
-        const qType = hasWord ? 'word-fill' : 'romaji-to-kana';
-        return makeQuestion(item, qType, pool);
+        return makeQuestion(item, hasWord ? 'word-fill' : 'romaji-to-kana', pool);
       });
       questions.push(...round1, ...round2);
-      // 避免連續兩題考同一個字
       if (questions.length > 2 && questions[round1.length - 1].item.id === questions[round1.length].item.id) {
         const last = questions.pop();
         questions.splice(round1.length, 0, last);
       }
     } else if (mode === 'confusable') {
-      // 易混淆對決特訓
       shuffle(pool).slice(0, 14).forEach((item, idx) => {
-        const qType = idx % 2 === 0 ? 'romaji-to-kana' : 'kana-to-romaji';
-        questions.push(makeQuestion(item, qType, pool));
+        questions.push(makeQuestion(item, idx % 2 === 0 ? 'romaji-to-kana' : 'kana-to-romaji', pool));
       });
     } else {
-      // 智慧弱點複習：依熟練度自動混合題型
       pool.forEach((item, idx) => {
         const hasWord = item.word && item.word[0] && item.word[0].includes(item.kana) && item.word[0].length > 1;
         const types = ['kana-to-romaji', 'romaji-to-kana', 'audio-to-kana'];
         if (hasWord) types.push('word-fill');
-        const qType = types[idx % types.length];
-        questions.push(makeQuestion(item, qType, pool));
+        questions.push(makeQuestion(item, types[idx % types.length], pool));
       });
     }
-
     return questions;
-  }
-
-  function makeQuestion(item, type, contextPool) {
-    const distractors = getSmartDistractors(item, contextPool, 3);
-    const choices = shuffle([item, ...distractors]);
-
-    let wordMasked = null;
-    if (type === 'word-fill' && item.word && item.word[0]) {
-      wordMasked = item.word[0].replace(item.kana, '＿');
-    }
-
-    return {
-      item,
-      type, // 'kana-to-romaji' | 'romaji-to-kana' | 'audio-to-kana' | 'word-fill'
-      choices,
-      wordMasked,
-      retried: false
-    };
   }
 
   function getSmartReviewItems(maxCount = 12) {
@@ -429,7 +439,6 @@
       .slice(0, maxCount)
       .map(x => x.it);
 
-    // 拉進最容易跟第一弱點混淆的同伴（如果已學過）做對比測試
     const out = [...ranked];
     const seen = new Set(out.map(x => x.id));
     ranked.slice(0, 4).forEach(it => {
@@ -444,14 +453,13 @@
     return shuffle(out);
   }
 
-  // ==================== 語音合成與微音效 ====================
+  // ==================== 語音與 Apple 溫潤聲學回饋 ====================
   let jpVoice = null;
   function initVoices() {
     if (!('speechSynthesis' in window)) return;
     const scan = () => {
       const voices = window.speechSynthesis.getVoices() || [];
       const jaVoices = voices.filter(v => /^ja([-_]|$)/i.test(v.lang));
-      // 優先挑選非壓縮的高音質日語語音
       jpVoice = jaVoices.find(v => !/compact/i.test(v.name)) || jaVoices[0] || null;
     };
     scan();
@@ -475,7 +483,6 @@
     } catch (_) {}
   }
 
-  // 同時朗讀「單一假名 ＋ 熟悉例詞」，讓語音引擎產生自然語調並連結聽覺詞彙
   function speakItem(item, withWord = true) {
     if (!('speechSynthesis' in window) || !item) return;
     try {
@@ -509,62 +516,109 @@
 
       const now = audioCtx.currentTime;
       if (type === 'correct') {
-        [523.25, 659.25].forEach((freq, i) => {
+        [587.33, 880.0].forEach((freq, i) => {
           const osc = audioCtx.createOscillator();
           const gain = audioCtx.createGain();
           osc.type = 'sine';
-          osc.frequency.setValueAtTime(freq, now + i * 0.075);
-          gain.gain.setValueAtTime(0.001, now + i * 0.075);
-          gain.gain.exponentialRampToValueAtTime(0.11, now + i * 0.075 + 0.02);
-          gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.075 + 0.22);
+          osc.frequency.setValueAtTime(freq, now + i * 0.065);
+          gain.gain.setValueAtTime(0.001, now + i * 0.065);
+          gain.gain.exponentialRampToValueAtTime(0.08, now + i * 0.065 + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.065 + 0.22);
           osc.connect(gain);
           gain.connect(audioCtx.destination);
-          osc.start(now + i * 0.075);
-          osc.stop(now + i * 0.075 + 0.24);
+          osc.start(now + i * 0.065);
+          osc.stop(now + i * 0.065 + 0.24);
         });
       } else if (type === 'wrong') {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(220, now);
-        osc.frequency.linearRampToValueAtTime(175, now + 0.18);
-        gain.gain.setValueAtTime(0.09, now);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(240, now);
+        osc.frequency.linearRampToValueAtTime(190, now + 0.16);
+        gain.gain.setValueAtTime(0.07, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start(now);
-        osc.stop(now + 0.24);
+        osc.stop(now + 0.22);
       } else if (type === 'complete') {
         [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
           const osc = audioCtx.createOscillator();
           const gain = audioCtx.createGain();
           osc.type = 'sine';
-          osc.frequency.setValueAtTime(freq, now + i * 0.08);
-          gain.gain.setValueAtTime(0.001, now + i * 0.08);
-          gain.gain.exponentialRampToValueAtTime(0.12, now + i * 0.08 + 0.02);
-          gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.08 + 0.32);
+          osc.frequency.setValueAtTime(freq, now + i * 0.075);
+          gain.gain.setValueAtTime(0.001, now + i * 0.075);
+          gain.gain.exponentialRampToValueAtTime(0.09, now + i * 0.075 + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.075 + 0.34);
           osc.connect(gain);
           gain.connect(audioCtx.destination);
-          osc.start(now + i * 0.08);
-          osc.stop(now + i * 0.08 + 0.34);
+          osc.start(now + i * 0.075);
+          osc.stop(now + i * 0.075 + 0.36);
         });
       }
       if (navigator.vibrate) {
-        navigator.vibrate(type === 'wrong' ? [25, 30, 25] : 10);
+        navigator.vibrate(type === 'wrong' ? [18, 25, 18] : 8);
       }
     } catch (_) {}
   }
 
-  // ==================== 備份匯出與還原 ====================
+  // ==================== 跨裝置同步碼 ＋ JSON 備份 ====================
+  function generateSyncCode() {
+    // 精簡壓縮格式：只打包有效學習資料，讓字串短小好貼上
+    const compact = {
+      d: state.doneLessons,
+      s: state.streak,
+      l: state.lastStudyDate,
+      c: {}
+    };
+    Object.entries(state.cards).forEach(([id, v]) => {
+      compact.c[id] = [v.level, Math.round((v.due - Date.now()) / MIN), v.seen, v.ok, v.fail];
+    });
+    const bytes = new TextEncoder().encode(JSON.stringify(compact));
+    let bin = '';
+    bytes.forEach(b => { bin += String.fromCharCode(b); });
+    return 'KANA4-' + btoa(bin);
+  }
+
+  function restoreFromSyncCode(codeStr) {
+    const clean = String(codeStr || '').trim();
+    if (!clean.startsWith('KANA4-')) return false;
+    const bin = atob(clean.slice(6));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const compact = JSON.parse(new TextDecoder().decode(bytes));
+    if (!compact || typeof compact.c !== 'object') return false;
+
+    const next = defaultState();
+    next.settings = Object.assign({}, state.settings);
+    next.doneLessons = Array.isArray(compact.d) ? compact.d : [];
+    next.streak = compact.s || 0;
+    next.lastStudyDate = compact.l || '';
+    const now = Date.now();
+    Object.entries(compact.c).forEach(([id, arr]) => {
+      if (Array.isArray(arr) && window.KanaDB.BY_ID[id]) {
+        next.cards[id] = {
+          level: arr[0] || 1,
+          due: now + (arr[1] || 0) * MIN,
+          seen: arr[2] || 1,
+          ok: arr[3] || 0,
+          fail: arr[4] || 0,
+          last: now
+        };
+      }
+    });
+    state = next;
+    save(false);
+    return true;
+  }
+
   function exportBackupJSON() {
-    state.lastBackup = Date.now();
-    save(true);
     const payload = JSON.stringify(state, null, 2);
     const blob = new Blob([payload], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `kana-keiko-backup-${todayStr()}.json`;
+    a.download = `kana-progress-${todayStr()}.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -579,27 +633,6 @@
       save(false);
       return true;
     }
-    // 支援舊版多帳號格式備份檔匯入
-    if (parsed && parsed.profiles && parsed.active) {
-      state = defaultState();
-      const src = parsed.profiles[parsed.active].data || {};
-      if (src.cards) {
-        Object.entries(src.cards).forEach(([id, c]) => {
-          if (window.KanaDB.BY_ID[id]) {
-            state.cards[id] = {
-              level: Math.min(MAX_LEVEL, Math.max(1, c.l || 1)),
-              due: c.d || Date.now(),
-              seen: c.n || 1,
-              ok: Math.max(0, (c.n || 1) - (c.w || 0)),
-              fail: c.w || 0,
-              last: Date.now()
-            };
-          }
-        });
-      }
-      save(false);
-      return true;
-    }
     return false;
   }
 
@@ -607,6 +640,7 @@
     const keepSettings = Object.assign({}, state.settings);
     state = defaultState();
     state.settings = keepSettings;
+    clearContinuitySession();
     save(false);
   }
 
@@ -617,6 +651,9 @@
     load,
     save,
     onSave,
+    saveContinuitySession,
+    getContinuitySession,
+    clearContinuitySession,
     isStorageWorking: () => storageAvailable,
     getState: () => state,
     getSettings: () => state.settings,
@@ -634,6 +671,8 @@
     speak,
     speakItem,
     playTone,
+    generateSyncCode,
+    restoreFromSyncCode,
     exportBackupJSON,
     importBackupJSON,
     resetAllProgress

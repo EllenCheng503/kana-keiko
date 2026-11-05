@@ -1,12 +1,12 @@
-const CACHE_NAME = 'kana-science-v30';
+const CACHE_NAME = 'kana-science-v40';
 const ASSETS = [
   './',
   './index.html',
-  './css/style.css?v=3.0',
-  './js/data.js?v=3.0',
-  './js/engine.js?v=3.0',
-  './js/handwriting.js?v=3.0',
-  './js/app.js?v=3.0',
+  './css/style.css?v=4.0',
+  './js/data.js?v=4.0',
+  './js/engine.js?v=4.0',
+  './js/handwriting.js?v=4.0',
+  './js/app.js?v=4.0',
   './manifest.webmanifest'
 ];
 
