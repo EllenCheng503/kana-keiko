@@ -9,13 +9,13 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="五十音">
-  <meta name="description" content="結合認知科學、漢字字源、聽覺詞彙錨點與離線手寫辨識的日語五十音學習應用">
+  <meta name="description" content="結合認知科學、真人感日語神經網路發音、漢字字源與大尺寸手機手寫辨識的五十音學習應用">
   <link rel="manifest" href="manifest.webmanifest">
   <title>五十音 · 科學記憶</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&family=Noto+Serif+JP:wght@500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=4.0">
+  <link rel="stylesheet" href="css/style.css?v=5.0">
 </head>
 <body>
 
@@ -25,14 +25,17 @@
     <header class="ios-navbar">
       <div class="nav-status" id="saveStatusPill">
         <svg class="status-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-        <span id="saveStatusText">本機自動記憶已啟用</span>
+        <span id="saveStatusText">自動記憶中</span>
       </div>
 
       <div class="nav-controls">
         <div class="nav-streak" title="連續學習天數">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c.6 3.6-1.5 5.9-3.1 7.6-1.8 1.9-2.9 3.6-2.9 6.1A6 6 0 0 0 12 21.7a6 6 0 0 0 6-6c0-3.3-1.8-5.7-3.4-7.4-.5 1.8-1.7 2.8-2.9 3.2.8-2.6.9-5.8.3-9.5z"/></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c.6 3.6-1.5 5.9-3.1 7.6-1.8 1.9-2.9 3.6-2.9 6.1A6 6 0 0 0 12 21.7a6 6 0 0 0 6-6c0-3.3-1.8-5.7-3.4-7.4-.5 1.8-1.7 2.8-2.9 3.2.8-2.6.9-5.8.3-9.5z"/></svg>
           <span id="headerStreak">0</span>
         </div>
+        <button class="ios-pill-btn" id="btnSpeedToggle" title="切換標準語速與慢速分解發音">
+          <span id="speedToggleLabel">標準速</span>
+        </button>
         <button class="ios-pill-btn" id="btnFontToggle" title="切換黑體（介面招牌）與明體（書籍菜單）">
           <span id="fontToggleLabel">黑體</span>
         </button>
@@ -57,7 +60,7 @@
           <span class="large-title-sub" id="courseDoneSummary">0 / 38 課</span>
         </div>
 
-        <!-- Apple Continuity 斷點續學橫幅（重整頁面可無縫接回半途進度） -->
+        <!-- Apple Continuity 斷點續學橫幅 -->
         <div class="continuity-banner hidden" id="continuityBanner">
           <div class="continuity-info">
             <span class="continuity-dot"></span>
@@ -78,7 +81,7 @@
             <div class="hero-copy">
               <span class="ios-eyebrow">3 分鐘科學微課程</span>
               <h2 class="hero-title" id="heroLessonTitle">第 1 課 · あ行</h2>
-              <p class="hero-desc" id="heroLessonDesc">漢字字源橋接 · 聽覺詞彙連結 · 手指描摹</p>
+              <p class="hero-desc" id="heroLessonDesc">真人感發音 · 漢字字源 · 大畫布描摹</p>
             </div>
 
             <!-- Apple Fitness Style Activity Ring -->
@@ -176,11 +179,17 @@
         <div class="gojuon-grid" id="gojuonGrid"></div>
       </section>
 
-      <!-- ========== TAB 3：手寫 (Calligraphy Studio) ========== -->
+      <!-- ========== TAB 3：手寫 (Full-Width Mobile Calligraphy Studio) ========== -->
       <section class="ios-page" id="page-write">
-        <div class="large-title-row">
-          <h1 class="ios-large-title">手寫</h1>
-          <span class="large-title-sub" id="writePosText">1 / 5</span>
+        <div class="write-top-bar">
+          <div class="write-title-group">
+            <h1 class="ios-compact-title">手寫</h1>
+            <span class="large-title-sub" id="writePosText">1 / 5</span>
+          </div>
+          <div class="ios-segmented mode-seg">
+            <button class="seg-opt active" id="btnModeTrace">描紅</button>
+            <button class="seg-opt" id="btnModeBlind">默寫</button>
+          </div>
         </div>
 
         <div class="ios-segmented" id="writePoolTabs" style="margin-bottom: 10px;">
@@ -190,25 +199,21 @@
           <button class="seg-opt" data-pool="confuse">易混淆</button>
         </div>
 
-        <div class="ios-segmented" style="margin-bottom: 14px;">
-          <button class="seg-opt active" id="btnModeTrace">描紅引導</button>
-          <button class="seg-opt" id="btnModeBlind">默寫測試</button>
-        </div>
-
         <div class="ios-card write-card">
           <div class="write-header-bar">
-            <div class="write-target-meta">
+            <button class="write-target-meta" id="btnWriteTargetAudio" title="點選聽發音">
               <span class="romaji-pill" id="writeRomaji">a</span>
               <span class="write-word-meta" id="writeWordInfo">あめ · 雨</span>
-            </div>
+            </button>
             <div class="write-top-btns">
-              <button class="ios-circle-btn" id="btnWriteSpeak" aria-label="播放發音">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+              <button class="ios-circle-btn lg" id="btnWriteSpeak" aria-label="播放發音">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
               </button>
-              <button class="ios-pill-btn" id="btnWritePeek">提示</button>
+              <button class="ios-pill-btn lg" id="btnWritePeek">偷看底字</button>
             </div>
           </div>
 
+          <!-- 滿版大面積書道畫布（防誤滑鎖定） -->
           <div class="canvas-well">
             <canvas id="dojoCanvas"></canvas>
           </div>
@@ -219,16 +224,16 @@
           </div>
 
           <div class="write-controls-grid">
-            <button class="ios-btn-secondary" id="btnDojoUndo">復原</button>
-            <button class="ios-btn-secondary" id="btnDojoClear">清除</button>
-            <button class="ios-btn-primary compact" id="btnDojoCheck">檢查筆跡</button>
+            <button class="ios-btn-secondary tall" id="btnDojoUndo">復原一筆</button>
+            <button class="ios-btn-secondary tall" id="btnDojoClear">清除重寫</button>
+            <button class="ios-btn-primary tall" id="btnDojoCheck">檢查筆跡</button>
           </div>
 
           <div class="write-verdict hidden" id="dojoVerdict"></div>
 
           <div class="write-stepper">
-            <button class="stepper-btn" id="btnWritePrev">上一字</button>
-            <button class="stepper-btn" id="btnWriteNext">下一字</button>
+            <button class="stepper-pill-btn" id="btnWritePrev">← 上一字</button>
+            <button class="stepper-pill-btn" id="btnWriteNext">下一字 →</button>
           </div>
         </div>
       </section>
@@ -271,7 +276,6 @@
           <div class="weak-list" id="weakListContainer"></div>
         </div>
 
-        <!-- 進度保存說明與一鍵跨裝置同步碼 -->
         <div class="ios-card section-card">
           <div class="card-head-flex">
             <h3>本機自動記憶與跨裝置接力</h3>
@@ -332,10 +336,10 @@
         <span class="sheet-step-num" id="sessionStepLabel">1 / 5</span>
       </div>
 
-      <!-- STEP 1: Learn & Finger Trace -->
+      <!-- STEP 1: Learn, Split Audio & Full-Width Finger Trace -->
       <div class="sheet-scroll hidden" id="sessionLearnBody">
         <div class="sheet-subbar">
-          <span class="ios-eyebrow">認識字源與描摹</span>
+          <span class="ios-eyebrow">字源記憶與手指描摹</span>
           <button class="ios-text-btn" id="btnSkipToQuiz">跳至測驗</button>
         </div>
 
@@ -343,10 +347,14 @@
 
         <div class="ios-card encode-card">
           <div class="specimen-split">
-            <div class="specimen-primary">
+            <button class="specimen-primary" id="btnEncodeKanaOnly" title="點選單獨聽假名發音">
+              <span class="tap-audio-hint">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                單音
+              </span>
               <span class="specimen-kana" id="encodeKana" lang="ja">あ</span>
               <span class="specimen-romaji" id="encodeRomaji">a</span>
-            </div>
+            </button>
             <div class="specimen-origin" id="encodeEtymBox">
               <span class="origin-label">漢字草書來源</span>
               <span class="origin-kanji" id="encodeKanji" lang="ja">安</span>
@@ -354,27 +362,40 @@
             </div>
           </div>
 
-          <button class="ios-audio-row" id="btnEncodeSpeak">
-            <div class="audio-icon-circle">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-            </div>
-            <div class="audio-word-body" id="encodeWordDisplay"></div>
-            <span class="audio-action-label">發音</span>
-          </button>
+          <!-- 分段清晰發音列：可單獨點聽單字，也可點右側「連讀」聽「假名 ⋯ 停頓 ⋯ 單字」 -->
+          <div class="audio-split-bar" id="encodeAudioContainer">
+            <button class="ios-audio-main" id="btnEncodeWordOnly" title="點選單獨聽這個單字">
+              <div class="audio-icon-circle">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+              </div>
+              <div class="audio-word-body" id="encodeWordDisplay"></div>
+            </button>
+            <button class="audio-seq-btn" id="btnEncodeSpeak" title="先念假名、自然停頓後再念單字">
+              連讀
+            </button>
+          </div>
 
           <div class="ios-spec-list" id="encodeCues"></div>
 
+          <!-- 滿版大尺寸手指描摹區（面積擴大 3.5 倍，手機單手好寫不誤滑） -->
           <div class="inline-trace-block">
             <div class="inline-trace-header">
-              <span>手指描摹（加深動作記憶）</span>
-              <div class="inline-trace-meta">
+              <div class="trace-title-col">
+                <strong>手指描摹練習</strong>
                 <span id="learnTraceStrokes">0 / 3 畫</span>
-                <button class="ios-text-btn" id="btnLearnTraceClear">清除</button>
+              </div>
+              <div class="inline-trace-btns">
+                <button class="trace-tool-pill" id="btnLearnTraceUndo">復原</button>
+                <button class="trace-tool-pill" id="btnLearnTraceClear">清除</button>
+                <button class="trace-tool-pill primary" id="btnLearnTraceCheck">檢查</button>
               </div>
             </div>
+
             <div class="inline-pad-box">
               <canvas id="learnTraceCanvas"></canvas>
             </div>
+
+            <div class="learn-trace-feedback hidden" id="learnTraceVerdict"></div>
           </div>
         </div>
 
@@ -465,9 +486,9 @@
 
   </div>
 
-  <script src="js/data.js?v=4.0"></script>
-  <script src="js/engine.js?v=4.0"></script>
-  <script src="js/handwriting.js?v=4.0"></script>
-  <script src="js/app.js?v=4.0"></script>
+  <script src="js/data.js?v=5.0"></script>
+  <script src="js/engine.js?v=5.0"></script>
+  <script src="js/handwriting.js?v=5.0"></script>
+  <script src="js/app.js?v=5.0"></script>
 </body>
 </html>

@@ -1,6 +1,9 @@
 /**
- * app.js — 五十音 · 科學記憶 主控制器 (v4.0 Apple HIG Edition)
- * 設計準則：Clarity（清晰階層）· Deference（內容至上）· Depth（流暢景深）· Continuity（無縫接續）
+ * app.js — 五十音 · 科學記憶 主控制器 (v5.0 Apple HIG Edition)
+ * 升級亮點：
+ * 1. 真人感日語神經網路發音 ＋「單音 ⋯ 自然呼吸停頓 ⋯ 單字」分段視覺同步 ＋ 標準／慢速切換
+ * 2. 手機單手友善滿版大面積手寫畫布（課堂內與手寫工作坊同步升級至最高 360~400px 正方形）
+ * 3. 本機自動記憶 ＋ Apple Continuity 斷點續學 ＋ KANA4 跨裝置同步碼
  */
 (function () {
   'use strict';
@@ -49,13 +52,27 @@
       const txt = $('saveStatusText');
       if (!pill || !txt) return;
       pill.classList.add('saving');
-      txt.textContent = '進度已自動記憶';
+      txt.textContent = '進度已記憶';
       setTimeout(() => {
         pill.classList.remove('saving');
       }, 600);
     });
 
-    // 初始化雙高解析度手寫畫布
+    // 語音分段播放視覺同步（清楚呈現「念假名 → 停頓 → 念單字」）
+    window.KanaEngine.onSpeechStage((stage) => {
+      const encodeKanaBtn = $('btnEncodeKanaOnly');
+      const encodeWordBtn = $('btnEncodeWordOnly');
+      if (encodeKanaBtn) encodeKanaBtn.classList.toggle('is-speaking', stage === 'kana');
+      if (encodeWordBtn) encodeWordBtn.classList.toggle('is-speaking', stage === 'word');
+
+      const sheetWordBtn = document.getElementById('btnSheetWordOnly');
+      if (sheetWordBtn) sheetWordBtn.classList.toggle('is-speaking', stage === 'word');
+      document.querySelectorAll('#detailSheetContent .font-box').forEach(el => {
+        el.classList.toggle('is-speaking', stage === 'kana');
+      });
+    });
+
+    // 初始化雙大尺寸高解析度手寫畫布
     learnPad = window.KanaPad.create($('learnTraceCanvas'), {
       showGhost: true,
       onStrokeChange: (cur, exp) => {
@@ -78,10 +95,11 @@
     bindGlobalEvents();
     refreshAllViews();
     loadWritePool('current');
+    window.KanaEngine.preloadLessonAudio(nextLesson.chars);
 
-    // 註冊最新版 Service Worker（Network-first 確保更新即時生效且支援離線開啟）
+    // 註冊最新版 Service Worker
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-      navigator.serviceWorker.register('sw.js?v=4.0').catch(() => {});
+      navigator.serviceWorker.register('sw.js?v=5.0').catch(() => {});
     }
   }
 
@@ -96,6 +114,10 @@
     document.body.classList.toggle('font-mincho', isMincho);
     $('fontToggleLabel').textContent = isMincho ? '明體' : '黑體';
     $('btnFontToggle').classList.toggle('active', isMincho);
+
+    const isSlow = settings.speechSpeed === 'slow';
+    $('speedToggleLabel').textContent = isSlow ? '慢速' : '標準速';
+    $('btnSpeedToggle').classList.toggle('active', isSlow);
   }
 
   function showToast(msg) {
@@ -198,6 +220,8 @@
       return;
     }
 
+    window.KanaEngine.preloadLessonAudio(learnChars);
+
     const questions = (snap.questions || [])
       .map(q => {
         const item = window.KanaDB.BY_ID[q.itemId];
@@ -244,7 +268,15 @@
 
   // ==================== 全域事件綁定 ====================
   function bindGlobalEvents() {
-    // 頂部導覽列：外觀模式與黑體／明體切換
+    // 頂部導覽列：語速切換、字體切換與深淺模式
+    $('btnSpeedToggle').addEventListener('click', () => {
+      const cur = window.KanaEngine.getSettings().speechSpeed;
+      const next = cur === 'slow' ? 'normal' : 'slow';
+      window.KanaEngine.updateSetting('speechSpeed', next);
+      applyUserSettings();
+      showToast(next === 'slow' ? '已切換為慢速發音（含 1 秒清晰停頓）' : '已切換為標準自然語速');
+    });
+
     $('btnThemeToggle').addEventListener('click', () => {
       const cur = window.KanaEngine.getSettings().theme;
       window.KanaEngine.updateSetting('theme', cur === 'dark' ? 'light' : 'dark');
@@ -320,11 +352,15 @@
 
     $('btnModeTrace').addEventListener('click', () => setWriteBlindMode(false));
     $('btnModeBlind').addEventListener('click', () => setWriteBlindMode(true));
-    $('btnWriteSpeak').addEventListener('click', () => {
+
+    const playCurrentWriteAudio = () => {
       const it = UI.writeList[UI.writeIdx];
       if (it) window.KanaEngine.speakItem(it, true);
-    });
-    $('btnWritePeek').addEventListener('click', () => dojoPad.peekGhost(1300));
+    };
+    $('btnWriteSpeak').addEventListener('click', playCurrentWriteAudio);
+    $('btnWriteTargetAudio').addEventListener('click', playCurrentWriteAudio);
+
+    $('btnWritePeek').addEventListener('click', () => dojoPad.peekGhost(1400));
     $('btnDojoUndo').addEventListener('click', () => dojoPad.undo());
     $('btnDojoClear').addEventListener('click', () => {
       dojoPad.clear();
@@ -449,18 +485,49 @@
         beginQuizPhase(UI.session.lesson.chars, 'lesson');
       }
     });
+
+    // 課堂分段發音控制：單獨聽假名 / 單獨聽單字 / 帶自然停頓連讀
+    $('btnEncodeKanaOnly').addEventListener('click', () => {
+      if (UI.session && UI.session.phase === 'learn') {
+        const it = UI.session.learnChars[UI.session.learnIdx];
+        window.KanaEngine.speakKanaOnly(it);
+      }
+    });
+
+    $('btnEncodeWordOnly').addEventListener('click', () => {
+      if (UI.session && UI.session.phase === 'learn') {
+        const it = UI.session.learnChars[UI.session.learnIdx];
+        if (it.word && it.word[0]) window.KanaEngine.speakWordOnly(it);
+        else window.KanaEngine.speakKanaOnly(it);
+      }
+    });
+
     $('btnEncodeSpeak').addEventListener('click', () => {
       if (UI.session && UI.session.phase === 'learn') {
         const it = UI.session.learnChars[UI.session.learnIdx];
         window.KanaEngine.speakItem(it, true);
       }
     });
-    $('btnLearnTraceClear').addEventListener('click', () => learnPad.clear());
+
+    // 課堂內大畫布手寫工具列：復原 / 清除 / 即時檢查
+    $('btnLearnTraceUndo').addEventListener('click', () => {
+      learnPad.undo();
+      $('learnTraceVerdict').classList.add('hidden');
+    });
+
+    $('btnLearnTraceClear').addEventListener('click', () => {
+      learnPad.clear();
+      $('learnTraceVerdict').classList.add('hidden');
+    });
+
+    $('btnLearnTraceCheck').addEventListener('click', evaluateLearnTrace);
+
     $('btnLearnPrev').addEventListener('click', () => {
       if (!UI.session || UI.session.learnIdx <= 0) return;
       UI.session.learnIdx--;
       renderLearnStep();
     });
+
     $('btnLearnNext').addEventListener('click', () => {
       if (!UI.session) return;
       if (UI.session.learnIdx < UI.session.learnChars.length - 1) {
@@ -498,6 +565,7 @@
   }
 
   function switchTab(tabId) {
+    window.KanaEngine.stopSpeech();
     UI.activeTab = tabId;
     document.querySelectorAll('.ios-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
     document.querySelectorAll('.ios-page').forEach(p => p.classList.toggle('active', p.id === `page-${tabId}`));
@@ -551,7 +619,7 @@
     // Hero 推薦課程卡片
     const scriptBadge = nextLesson.script === 'h' ? '平假名' : '片假名';
     $('heroLessonTitle').textContent = `第 ${nextIdx} 課 · ${scriptBadge} ${nextLesson.title}`;
-    $('heroLessonDesc').textContent = nextLesson.tip || '漢字字源橋接 · 聽覺詞彙連結 · 手指描摹';
+    $('heroLessonDesc').textContent = nextLesson.tip || '真人感發音 · 漢字字源橋接 · 大畫布手指描摹';
     $('btnHeroStartLabel').textContent = state.doneLessons.length === 0
       ? '開始第 1 課（3 分鐘）'
       : `繼續第 ${nextIdx} 課（${nextLesson.chars.length} 字）`;
@@ -658,6 +726,8 @@
 
   // ==================== 全螢幕微課程與主動提取引擎 ====================
   function startGuidedLesson(lesson) {
+    window.KanaEngine.preloadLessonAudio(lesson.chars);
+
     UI.session = {
       mode: 'lesson',
       lesson,
@@ -682,6 +752,8 @@
   }
 
   function startQuizOnlySession(items, quizMode, title, lessonId = null) {
+    window.KanaEngine.preloadLessonAudio(items);
+
     UI.session = {
       mode: quizMode,
       lesson: lessonId ? window.KanaDB.LESSON_BY_ID[lessonId] : null,
@@ -704,6 +776,7 @@
   }
 
   function closeSessionOverlay() {
+    window.KanaEngine.stopSpeech();
     if (UI.session && UI.session.phase !== 'result') {
       persistContinuitySnapshot();
     }
@@ -718,6 +791,7 @@
     if (!s) return;
     const item = s.learnChars[s.learnIdx];
     window.KanaEngine.markIntroduced(item.id);
+    $('sessionLearnBody').scrollTop = 0;
 
     const totalSteps = s.learnChars.length * 2;
     const pct = Math.round(((s.learnIdx + 1) / totalSteps) * 100);
@@ -745,6 +819,7 @@
     $('encodePairTag').textContent = item.script === 'h' ? `片假名 ${item.pair}` : `平假名 ${item.pair}`;
 
     $('encodeWordDisplay').innerHTML = formatWordHighlight(item);
+    $('learnTraceVerdict').classList.add('hidden');
 
     let cuesHtml = '';
     if (item.lore) {
@@ -771,10 +846,40 @@
 
     setTimeout(() => {
       learnPad.setTarget(item, true);
-    }, 20);
+    }, 25);
 
     if (window.KanaEngine.getSettings().autoSpeak) {
-      window.KanaEngine.speakItem(item, true);
+      setTimeout(() => {
+        if (UI.session && UI.session.phase === 'learn' && UI.session.learnChars[UI.session.learnIdx] === item) {
+          window.KanaEngine.speakItem(item, true);
+        }
+      }, 150);
+    }
+  }
+
+  function evaluateLearnTrace() {
+    if (!UI.session || UI.session.phase !== 'learn') return;
+    const item = UI.session.learnChars[UI.session.learnIdx];
+    if (!item) return;
+
+    const res = window.KanaPad.recognize(learnPad, item);
+    const fb = $('learnTraceVerdict');
+    fb.classList.remove('hidden', 'ok', 'retry');
+
+    if (res.empty) {
+      fb.classList.add('hidden');
+      showToast('請先用手指在格線中描寫假名');
+      return;
+    }
+
+    if (res.passed) {
+      window.KanaEngine.playTone('correct');
+      fb.classList.add('ok');
+      fb.textContent = `筆跡結構準確（契合度 ${res.scorePct}% · 共 ${res.strokeCount} 畫）`;
+    } else {
+      window.KanaEngine.playTone('wrong');
+      fb.classList.add('retry');
+      fb.textContent = `位置略偏，可參考藍色底字再描一次（目前契合度 ${res.scorePct}%）`;
     }
   }
 
@@ -782,6 +887,7 @@
   function beginQuizPhase(items, deckMode) {
     const s = UI.session;
     if (!s) return;
+    window.KanaEngine.stopSpeech();
     s.phase = 'quiz';
     s.questions = window.KanaEngine.buildQuizDeck(items, deckMode);
     s.qIdx = 0;
@@ -851,7 +957,7 @@
       stim.querySelector('#btnStimAudioReplay').addEventListener('click', () => {
         window.KanaEngine.speakItem(item, true);
       });
-      setTimeout(() => window.KanaEngine.speakItem(item, true), 80);
+      setTimeout(() => window.KanaEngine.speakItem(item, true), 120);
     } else if (q.type === 'word-fill') {
       const [, rom, zh] = item.word;
       $('quizTypeBadge').textContent = '語境提取 · 單字填空';
@@ -860,7 +966,7 @@
         <div class="q-word-box" lang="ja">${escapeHtml(q.wordMasked)}</div>
         <div class="q-word-sub">${escapeHtml(rom)} · ${escapeHtml(zh)}</div>
       `;
-      setTimeout(() => window.KanaEngine.speak(item.word[0], 0.85), 80);
+      setTimeout(() => window.KanaEngine.speakWordOnly(item), 120);
     }
 
     const grid = $('quizChoicesGrid');
@@ -916,7 +1022,7 @@
 
     window.KanaEngine.recordAnswer(target.id, isCorrect);
     window.KanaEngine.playTone(isCorrect ? 'correct' : 'wrong');
-    window.KanaEngine.speakItem(target, true);
+    setTimeout(() => window.KanaEngine.speakItem(target, true), 160);
 
     const drawer = $('quizFeedbackDrawer');
     drawer.classList.remove('hidden', 'is-ok', 'is-bad');
@@ -949,7 +1055,6 @@
       }
       $('fbDetail').innerHTML = fixHtml;
 
-      // 精通學習閉環：答錯題自動排入本輪末尾重測一次
       if (!q.retried) {
         s.questions.push({
           ...q,
@@ -965,6 +1070,7 @@
   function nextQuizStep() {
     const s = UI.session;
     if (!s) return;
+    window.KanaEngine.stopSpeech();
     s.qIdx++;
     renderCurrentQuizQuestion();
   }
@@ -972,6 +1078,7 @@
   function finishSession() {
     const s = UI.session;
     if (!s) return;
+    window.KanaEngine.stopSpeech();
     s.phase = 'result';
 
     window.KanaEngine.clearContinuitySession();
@@ -1071,27 +1178,29 @@
     box.innerHTML = `
       <div style="padding-right: 36px; margin-bottom: 6px;">
         <span class="ios-eyebrow">${escapeHtml(lvLabel)}</span>
-        <div style="font-size: 13px; color: var(--sys-label-2);">對應平片假名：<strong lang="ja">${escapeHtml(item.pair)}</strong></div>
+        <div style="font-size: 13px; color: var(--sys-label-2);">對應平片假名：<strong lang="ja">${escapeHtml(item.pair)}</strong>（點字框聽單音）</div>
       </div>
 
       <div class="sheet-font-compare">
-        <div class="font-box">
+        <button class="font-box" data-speak-kana="1">
           <span class="f-label">黑體（介面／招牌）</span>
           <span class="f-gothic" lang="ja">${escapeHtml(item.kana)}</span>
-        </div>
-        <div class="font-box">
+        </button>
+        <button class="font-box" data-speak-kana="1">
           <span class="f-label">明體（書籍／菜單）</span>
           <span class="f-mincho" lang="ja">${escapeHtml(item.kana)}</span>
-        </div>
+        </button>
       </div>
 
-      <button class="ios-audio-row" id="btnSheetSpeak">
-        <div class="audio-icon-circle">${ICON_SPEAKER_SM}</div>
-        <div class="audio-word-body">
-          <strong>${escapeHtml(item.romaji)}</strong> · ${formatWordHighlight(item)}
-        </div>
-        <span class="audio-action-label">發音</span>
-      </button>
+      <div class="audio-split-bar" style="margin-bottom: 12px;">
+        <button class="ios-audio-main" id="btnSheetWordOnly" title="單獨聽單字發音">
+          <div class="audio-icon-circle">${ICON_SPEAKER_SM}</div>
+          <div class="audio-word-body">
+            <strong>${escapeHtml(item.romaji)}</strong> · ${formatWordHighlight(item)}
+          </div>
+        </button>
+        <button class="audio-seq-btn" id="btnSheetSpeak">連讀</button>
+      </div>
 
       <div class="ios-spec-list">
         ${item.lore ? `<div class="cue-row"><span class="cue-tag">漢字字源</span><span>源自「<strong>${escapeHtml(item.lore[0])}</strong>」：${escapeHtml(item.lore[1])}</span></div>` : ''}
@@ -1100,10 +1209,17 @@
       ${confHtml}
 
       <button class="ios-btn-primary" id="btnSheetGoWrite">
-        前往手寫練習「${escapeHtml(item.kana)}」
+        前往大畫布手寫「${escapeHtml(item.kana)}」
       </button>
     `;
 
+    box.querySelectorAll('[data-speak-kana]').forEach(b => {
+      b.addEventListener('click', () => window.KanaEngine.speakKanaOnly(item));
+    });
+    box.querySelector('#btnSheetWordOnly').addEventListener('click', () => {
+      if (item.word && item.word[0]) window.KanaEngine.speakWordOnly(item);
+      else window.KanaEngine.speakKanaOnly(item);
+    });
     box.querySelector('#btnSheetSpeak').addEventListener('click', () => window.KanaEngine.speakItem(item, true));
     box.querySelectorAll('[data-twin]').forEach(b => {
       b.addEventListener('click', () => {
@@ -1123,10 +1239,11 @@
   }
 
   function closeDetailSheet() {
+    window.KanaEngine.stopSpeech();
     $('detailSheetBackdrop').classList.add('hidden');
   }
 
-  // ==================== TAB 3：手寫工作坊與離線筆跡辨識 ====================
+  // ==================== TAB 3：滿版手寫工作坊與離線筆跡辨識 ====================
   function loadWritePool(poolType) {
     UI.writePoolType = poolType;
     if (poolType === 'current') {
@@ -1141,6 +1258,7 @@
       UI.writeList = classic.map(k => window.KanaDB.BY_KANA[k]).filter(Boolean);
     }
     UI.writeIdx = 0;
+    window.KanaEngine.preloadLessonAudio(UI.writeList.slice(0, 6));
     renderDojoCurrent();
   }
 
@@ -1176,7 +1294,7 @@
 
     if (res.empty) {
       box.classList.add('hidden');
-      showToast('請先在畫布中寫出假名');
+      showToast('請先用手指在畫布中寫出假名');
       return;
     }
 
@@ -1187,7 +1305,7 @@
     if (res.passed) {
       window.KanaEngine.recordAnswer(item.id, true);
       window.KanaEngine.playTone('correct');
-      window.KanaEngine.speakItem(item, true);
+      setTimeout(() => window.KanaEngine.speakItem(item, true), 150);
       dojoPad.setGhost(true);
       box.classList.add('ok');
       box.innerHTML = `
@@ -1211,7 +1329,7 @@
       const tip = item.contrastTip ? `<div style="margin-top: 4px;">提示：${escapeHtml(item.contrastTip)}</div>` : '';
 
       const candsHtml = res.top3.map(r =>
-        `<span class="cand-pill" lang="ja">${escapeHtml(r.item.kana)} ${Math.round(Math.min(99, r.score * 122))}%</span>`
+        `<span class="cand-pill" lang="ja">${escapeHtml(r.item.kana)} ${Math.round(Math.min(99, r.score * 124))}%</span>`
       ).join('');
 
       box.innerHTML = `

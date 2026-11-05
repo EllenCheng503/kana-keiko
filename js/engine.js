@@ -1,8 +1,8 @@
 /**
- * engine.js — 記憶科學與永續儲存引擎 (v4.0 Apple HIG Edition)
- * - 即時本機自動儲存 (localStorage) ＋ 舊版資料無縫遷移
- * - 斷點續學快照 (Continuity Session Snapshot)：重新整理連半途進度都不遺失
- * - 跨裝置短同步碼 (One-Tap Sync Code) ＋ JSON 備份雙重保障
+ * engine.js — 記憶科學、自然真人感語音與永續儲存引擎 (v5.0 Apple HIG Edition)
+ * - 真人感日語神經網路語音 MP3 播放器（支援「假名 ⋯ 自然呼吸停頓 ⋯ 單字」分段發音與語速切換）
+ * - 即時本機自動儲存 (localStorage) ＋ 斷點續學快照 (Apple Continuity)
+ * - 跨裝置短同步碼 (KANA4-...) ＋ JSON 備份雙重保障
  * - 艾賓浩斯 6 階記憶排程 ＋ 易混淆雙胞胎智慧干擾項生成
  */
 (function () {
@@ -28,7 +28,7 @@
 
   function defaultState() {
     return {
-      version: 4,
+      version: 5,
       cards: {},       // { [item.id]: { level, due, seen, ok, fail, last } }
       doneLessons: [], // ['hb0', ...]
       streak: 0,
@@ -40,8 +40,9 @@
       settings: {
         autoSpeak: true,
         soundFx: true,
-        fontStyle: 'gothic', // 'gothic' | 'mincho'
-        theme: 'light'       // 'light' | 'dark'
+        speechSpeed: 'normal', // 'normal' | 'slow'
+        fontStyle: 'gothic',   // 'gothic' | 'mincho'
+        theme: 'light'         // 'light' | 'dark'
       }
     };
   }
@@ -49,6 +50,7 @@
   let storageAvailable = true;
   let state = defaultState();
   let saveListeners = [];
+  let speechStageListeners = [];
 
   function checkStorage() {
     try {
@@ -169,6 +171,16 @@
     saveListeners.push(fn);
   }
 
+  function onSpeechStage(fn) {
+    speechStageListeners.push(fn);
+  }
+
+  function emitSpeechStage(stage, item) {
+    speechStageListeners.forEach(fn => {
+      try { fn(stage, item || null); } catch (_) {}
+    });
+  }
+
   // ==================== 斷點續學快照 (Apple Continuity) ====================
   function saveContinuitySession(snapshot) {
     if (!storageAvailable) return;
@@ -190,7 +202,6 @@
       const raw = localStorage.getItem(SESSION_KEY);
       if (!raw) return null;
       const snap = JSON.parse(raw);
-      // 保留 48 小時內的未完成課堂快照
       if (!snap || (Date.now() - (snap.savedAt || 0)) > 2 * DAY) {
         localStorage.removeItem(SESSION_KEY);
         return null;
@@ -453,14 +464,25 @@
     return shuffle(out);
   }
 
-  // ==================== 語音與 Apple 溫潤聲學回饋 ====================
+  // ==================== 真人感神經網路日語語音引擎 (Studio Neural MP3 + 自然停頓) ====================
+  const AUDIO_CACHE = new Map();
+  let currentSpeechToken = 0;
+  let activeAudioEl = null;
+  let pauseTimerId = null;
   let jpVoice = null;
+
   function initVoices() {
     if (!('speechSynthesis' in window)) return;
     const scan = () => {
       const voices = window.speechSynthesis.getVoices() || [];
       const jaVoices = voices.filter(v => /^ja([-_]|$)/i.test(v.lang));
-      jpVoice = jaVoices.find(v => !/compact/i.test(v.name)) || jaVoices[0] || null;
+      // 優先挑選神經網路／高音質日文語音，避開老舊機械音 Haruka Desktop
+      jpVoice =
+        jaVoices.find(v => /natural|online|neural/i.test(v.name)) ||
+        jaVoices.find(v => /google|kyoko|o-ren|siri|hattori/i.test(v.name)) ||
+        jaVoices.find(v => !/compact|haruka/i.test(v.name)) ||
+        jaVoices[0] ||
+        null;
     };
     scan();
     if (window.speechSynthesis.onvoiceschanged !== undefined) {
@@ -470,41 +492,205 @@
     setTimeout(scan, 1500);
   }
 
-  function speak(text, rate = 0.82) {
-    if (!('speechSynthesis' in window) || !text) return;
-    try {
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'ja-JP';
-      if (jpVoice) u.voice = jpVoice;
-      u.rate = rate;
-      u.volume = 1;
-      window.speechSynthesis.speak(u);
-    } catch (_) {}
+  function getPlaybackSpeed() {
+    return state.settings.speechSpeed === 'slow' ? 0.78 : 0.96;
   }
 
-  function speakItem(item, withWord = true) {
-    if (!('speechSynthesis' in window) || !item) return;
-    try {
-      window.speechSynthesis.cancel();
-      const u1 = new SpeechSynthesisUtterance(item.kana);
-      u1.lang = 'ja-JP';
-      if (jpVoice) u1.voice = jpVoice;
-      u1.rate = 0.78;
-      u1.volume = 1;
-      window.speechSynthesis.speak(u1);
+  function getInterWordPauseMs() {
+    // 單音結束後額外留白，搭配音檔本身尾韻約 0.95 秒～1.25 秒的清晰老師停頓感
+    return state.settings.speechSpeed === 'slow' ? 1050 : 750;
+  }
 
-      if (withWord && item.word && item.word[0] && item.kana !== 'を' && item.kana !== 'ヲ') {
-        const u2 = new SpeechSynthesisUtterance(item.word[0]);
-        u2.lang = 'ja-JP';
-        if (jpVoice) u2.voice = jpVoice;
-        u2.rate = 0.88;
-        u2.volume = 1;
-        window.speechSynthesis.speak(u2);
+  function stopSpeech() {
+    currentSpeechToken += 1;
+    if (pauseTimerId) {
+      clearTimeout(pauseTimerId);
+      pauseTimerId = null;
+    }
+    if (activeAudioEl) {
+      try {
+        activeAudioEl.onended = null;
+        activeAudioEl.onerror = null;
+        activeAudioEl.pause();
+        activeAudioEl.currentTime = 0;
+      } catch (_) {}
+      activeAudioEl = null;
+    }
+    if ('speechSynthesis' in window) {
+      try { window.speechSynthesis.cancel(); } catch (_) {}
+    }
+    emitSpeechStage(null, null);
+  }
+
+  function preloadAudioUrl(url) {
+    if (!url || typeof Audio === 'undefined') return null;
+    if (AUDIO_CACHE.has(url)) return AUDIO_CACHE.get(url);
+    const a = new Audio();
+    a.preload = 'auto';
+    a.src = url;
+    if (AUDIO_CACHE.size > 80) {
+      const firstKey = AUDIO_CACHE.keys().next().value;
+      AUDIO_CACHE.delete(firstKey);
+    }
+    AUDIO_CACHE.set(url, a);
+    return a;
+  }
+
+  function preloadLessonAudio(items) {
+    if (!Array.isArray(items)) return;
+    items.forEach(it => {
+      if (!it) return;
+      if (it.kanaAudio) preloadAudioUrl(it.kanaAudio);
+      if (it.wordAudio) preloadAudioUrl(it.wordAudio);
+    });
+  }
+
+  function playMp3Once(url, token) {
+    return new Promise((resolve) => {
+      if (!url || typeof Audio === 'undefined' || token !== currentSpeechToken) {
+        resolve(false);
+        return;
       }
-    } catch (_) {}
+      try {
+        let audio = preloadAudioUrl(url);
+        if (!audio) {
+          resolve(false);
+          return;
+        }
+        audio.pause();
+        audio.currentTime = 0;
+        const speed = getPlaybackSpeed();
+        audio.playbackRate = speed;
+        if ('preservesPitch' in audio) audio.preservesPitch = true;
+        if ('webkitPreservesPitch' in audio) audio.webkitPreservesPitch = true;
+        if ('mozPreservesPitch' in audio) audio.mozPreservesPitch = true;
+
+        activeAudioEl = audio;
+        let settled = false;
+        const done = (ok) => {
+          if (settled) return;
+          settled = true;
+          audio.onended = null;
+          audio.onerror = null;
+          if (activeAudioEl === audio) activeAudioEl = null;
+          resolve(ok);
+        };
+
+        audio.onended = () => done(true);
+        audio.onerror = () => done(false);
+
+        const playPromise = audio.play();
+        if (playPromise && typeof playPromise.catch === 'function') {
+          playPromise.catch(() => done(false));
+        }
+      } catch (_) {
+        resolve(false);
+      }
+    });
   }
 
+  function fallbackBrowserSpeakOne(text, token) {
+    return new Promise((resolve) => {
+      if (!('speechSynthesis' in window) || !text || token !== currentSpeechToken) {
+        resolve(false);
+        return;
+      }
+      try {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'ja-JP';
+        if (jpVoice) u.voice = jpVoice;
+        u.rate = state.settings.speechSpeed === 'slow' ? 0.65 : 0.78;
+        u.volume = 1;
+        u.onend = () => resolve(true);
+        u.onerror = () => resolve(false);
+        window.speechSynthesis.speak(u);
+      } catch (_) {
+        resolve(false);
+      }
+    });
+  }
+
+  function waitPause(ms, token) {
+    return new Promise((resolve) => {
+      if (token !== currentSpeechToken) {
+        resolve(false);
+        return;
+      }
+      pauseTimerId = setTimeout(() => {
+        pauseTimerId = null;
+        resolve(token === currentSpeechToken);
+      }, ms);
+    });
+  }
+
+  async function speakKanaOnly(item) {
+    if (!item) return;
+    stopSpeech();
+    const token = currentSpeechToken;
+    emitSpeechStage('kana', item);
+    const ok = await playMp3Once(item.kanaAudio, token);
+    if (!ok && token === currentSpeechToken) {
+      await fallbackBrowserSpeakOne(item.kana, token);
+    }
+    if (token === currentSpeechToken) emitSpeechStage(null, null);
+  }
+
+  async function speakWordOnly(item) {
+    if (!item || !item.word || !item.word[0]) return;
+    stopSpeech();
+    const token = currentSpeechToken;
+    emitSpeechStage('word', item);
+    const ok = await playMp3Once(item.wordAudio, token);
+    if (!ok && token === currentSpeechToken) {
+      await fallbackBrowserSpeakOne(item.word[0], token);
+    }
+    if (token === currentSpeechToken) emitSpeechStage(null, null);
+  }
+
+  async function speak(text) {
+    if (!text) return;
+    stopSpeech();
+    const token = currentSpeechToken;
+    const wordUrl = window.KanaDB && window.KanaDB.getWordAudioUrl ? window.KanaDB.getWordAudioUrl(text) : null;
+    const ok = await playMp3Once(wordUrl, token);
+    if (!ok && token === currentSpeechToken) {
+      await fallbackBrowserSpeakOne(text, token);
+    }
+  }
+
+  async function speakItem(item, withWord = true) {
+    if (!item) return;
+    stopSpeech();
+    const token = currentSpeechToken;
+
+    emitSpeechStage('kana', item);
+    const okKana = await playMp3Once(item.kanaAudio, token);
+    if (!okKana && token === currentSpeechToken) {
+      await fallbackBrowserSpeakOne(item.kana, token);
+    }
+    if (token !== currentSpeechToken) return;
+
+    const shouldSpeakWord = withWord && item.word && item.word[0] && item.kana !== 'を' && item.kana !== 'ヲ';
+    if (!shouldSpeakWord) {
+      emitSpeechStage(null, null);
+      return;
+    }
+
+    // 明確自然呼吸停頓：先讓耳朵消化單音「あ」，再溫和念出單字「あめ」
+    emitSpeechStage('pause', item);
+    const alive = await waitPause(getInterWordPauseMs(), token);
+    if (!alive || token !== currentSpeechToken) return;
+
+    emitSpeechStage('word', item);
+    const okWord = await playMp3Once(item.wordAudio, token);
+    if (!okWord && token === currentSpeechToken) {
+      await fallbackBrowserSpeakOne(item.word[0], token);
+    }
+    if (token === currentSpeechToken) emitSpeechStage(null, null);
+  }
+
+  // ==================== Apple 溫潤聲學回饋 ====================
   let audioCtx = null;
   function playTone(type) {
     if (!state.settings.soundFx) return;
@@ -522,7 +708,7 @@
           osc.type = 'sine';
           osc.frequency.setValueAtTime(freq, now + i * 0.065);
           gain.gain.setValueAtTime(0.001, now + i * 0.065);
-          gain.gain.exponentialRampToValueAtTime(0.08, now + i * 0.065 + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.075, now + i * 0.065 + 0.015);
           gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.065 + 0.22);
           osc.connect(gain);
           gain.connect(audioCtx.destination);
@@ -535,7 +721,7 @@
         osc.type = 'sine';
         osc.frequency.setValueAtTime(240, now);
         osc.frequency.linearRampToValueAtTime(190, now + 0.16);
-        gain.gain.setValueAtTime(0.07, now);
+        gain.gain.setValueAtTime(0.065, now);
         gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
         osc.connect(gain);
         gain.connect(audioCtx.destination);
@@ -548,7 +734,7 @@
           osc.type = 'sine';
           osc.frequency.setValueAtTime(freq, now + i * 0.075);
           gain.gain.setValueAtTime(0.001, now + i * 0.075);
-          gain.gain.exponentialRampToValueAtTime(0.09, now + i * 0.075 + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.085, now + i * 0.075 + 0.02);
           gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.075 + 0.34);
           osc.connect(gain);
           gain.connect(audioCtx.destination);
@@ -564,7 +750,6 @@
 
   // ==================== 跨裝置同步碼 ＋ JSON 備份 ====================
   function generateSyncCode() {
-    // 精簡壓縮格式：只打包有效學習資料，讓字串短小好貼上
     const compact = {
       d: state.doneLessons,
       s: state.streak,
@@ -651,6 +836,7 @@
     load,
     save,
     onSave,
+    onSpeechStage,
     saveContinuitySession,
     getContinuitySession,
     clearContinuitySession,
@@ -668,7 +854,11 @@
     getSmartDistractors,
     buildQuizDeck,
     getSmartReviewItems,
+    stopSpeech,
+    preloadLessonAudio,
     speak,
+    speakKanaOnly,
+    speakWordOnly,
     speakItem,
     playTone,
     generateSyncCode,

@@ -1,6 +1,6 @@
 /* ==========================================================================
-   Apple Human Interface Guidelines (iOS 18) Design System — v4.0
-   Principles: Clarity · Deference · Depth · Tactile Precision
+   Apple Human Interface Guidelines (iOS 18) Design System — v5.0
+   Principles: Clarity · Deference · Depth · Mobile Finger Ergonomics
    ========================================================================== */
 
 :root {
@@ -30,8 +30,8 @@
   --seg-thumb: #FFFFFF;
   --seg-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 3px 1px rgba(0, 0, 0, 0.04);
   --card-shadow: 0 2px 14px rgba(0, 0, 0, 0.035), 0 0 1px rgba(0, 0, 0, 0.04);
-  --glass-bg: rgba(242, 242, 247, 0.80);
-  --tabbar-bg: rgba(255, 255, 255, 0.84);
+  --glass-bg: rgba(242, 242, 247, 0.82);
+  --tabbar-bg: rgba(255, 255, 255, 0.85);
 
   --radius-card: 20px;
   --radius-btn: 14px;
@@ -71,8 +71,8 @@ html[data-theme="dark"] {
   --seg-thumb: #636366;
   --seg-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
   --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
-  --glass-bg: rgba(0, 0, 0, 0.76);
-  --tabbar-bg: rgba(28, 28, 30, 0.86);
+  --glass-bg: rgba(0, 0, 0, 0.78);
+  --tabbar-bg: rgba(28, 28, 30, 0.88);
 }
 
 body.font-mincho {
@@ -117,7 +117,7 @@ button {
   cursor: pointer;
   touch-action: manipulation;
   user-select: none;
-  transition: transform 0.16s var(--spring), opacity 0.16s ease, background-color 0.18s ease;
+  transition: transform 0.16s var(--spring), opacity 0.16s ease, background-color 0.18s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 button:active:not(:disabled) {
@@ -133,7 +133,7 @@ button:disabled {
 .ios-device-frame {
   position: relative;
   width: 100%;
-  max-width: 440px;
+  max-width: 452px;
   height: 100vh;
   height: 100dvh;
   margin: 0 auto;
@@ -155,25 +155,28 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: calc(8px + env(safe-area-inset-top)) 16px 8px;
+  padding: calc(8px + env(safe-area-inset-top)) 14px 8px;
   background: var(--glass-bg);
   backdrop-filter: saturate(180%) blur(24px);
   -webkit-backdrop-filter: saturate(180%) blur(24px);
   z-index: 20;
+  gap: 6px;
 }
 
 .nav-status {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   font-size: 12px;
   font-weight: 500;
   color: var(--sys-label-2);
   transition: color 0.25s ease;
+  white-space: nowrap;
 }
 
 .nav-status .status-check {
   color: var(--sys-green);
+  flex-shrink: 0;
 }
 
 .nav-status.saving {
@@ -183,32 +186,39 @@ button:disabled {
 .nav-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .nav-streak {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 4px 9px;
+  padding: 4px 8px;
   border-radius: 999px;
   background: var(--sys-orange-soft);
   color: var(--sys-orange);
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
 }
 
 .ios-pill-btn {
   height: 30px;
-  padding: 0 11px;
+  padding: 0 10px;
   border-radius: 999px;
   background: var(--sys-fill);
   color: var(--sys-label);
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  white-space: nowrap;
+}
+
+.ios-pill-btn.lg {
+  height: 36px;
+  padding: 0 13px;
+  font-size: 13px;
 }
 
 .ios-pill-btn.active {
@@ -225,6 +235,14 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+}
+
+.ios-circle-btn.lg {
+  width: 38px;
+  height: 38px;
+  color: var(--sys-blue);
+  background: var(--sys-blue-soft);
 }
 
 .ios-banner-warn {
@@ -240,7 +258,7 @@ button:disabled {
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 4px 16px calc(92px + env(safe-area-inset-bottom));
+  padding: 4px 14px calc(90px + env(safe-area-inset-bottom));
 }
 
 .ios-page {
@@ -261,13 +279,20 @@ button:disabled {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  padding: 4px 2px 14px;
+  padding: 4px 2px 12px;
 }
 
 .ios-large-title {
-  font-size: 32px;
+  font-size: 31px;
   font-weight: 700;
   letter-spacing: -0.024em;
+  line-height: 1.15;
+}
+
+.ios-compact-title {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   line-height: 1.15;
 }
 
@@ -282,7 +307,7 @@ button:disabled {
   background: var(--sys-surface);
   border-radius: var(--radius-card);
   box-shadow: var(--card-shadow);
-  padding: 18px;
+  padding: 16px;
 }
 
 .ios-eyebrow {
@@ -301,7 +326,7 @@ button:disabled {
   border-radius: var(--radius-btn);
   background: var(--sys-blue);
   color: #FFFFFF;
-  font-size: 16.5px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.01em;
   display: inline-flex;
@@ -309,9 +334,10 @@ button:disabled {
   justify-content: center;
 }
 
-.ios-btn-primary.compact {
-  min-height: 44px;
+.ios-btn-primary.tall {
+  min-height: 48px;
   font-size: 15px;
+  padding: 0 12px;
 }
 
 .ios-btn-secondary {
@@ -325,6 +351,12 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.ios-btn-secondary.tall {
+  min-height: 48px;
+  font-size: 14.5px;
+  padding: 0 10px;
 }
 
 .ios-text-btn {
@@ -352,7 +384,7 @@ button:disabled {
 
 .seg-opt {
   flex: 1;
-  min-height: 30px;
+  min-height: 31px;
   padding: 4px 10px;
   border-radius: 7px;
   font-size: 13px;
@@ -424,8 +456,8 @@ button:disabled {
 }
 
 .continuity-dismiss-btn {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   color: var(--sys-label-3);
   font-size: 12px;
@@ -837,18 +869,44 @@ button:disabled {
 .kana-cell.stage-2 .cell-dot { background: var(--sys-blue); }
 .kana-cell.stage-3 .cell-dot { background: var(--sys-green); }
 
-/* ==================== TAB 3: Handwriting Studio ==================== */
+/* ==================== TAB 3: Full-Width Mobile Handwriting Studio ==================== */
+.write-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 2px 10px;
+}
+
+.write-title-group {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.mode-seg {
+  min-width: 128px;
+}
+
+.write-card {
+  padding: 13px 12px 15px;
+}
+
 .write-header-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
+  gap: 8px;
 }
 
 .write-target-meta {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
+  text-align: left;
+  padding: 2px 6px 2px 0;
+  border-radius: 12px;
 }
 
 .romaji-pill {
@@ -861,7 +919,7 @@ button:disabled {
 }
 
 .write-word-meta {
-  font-size: 14px;
+  font-size: 14.5px;
   color: var(--sys-label-2);
   font-weight: 500;
 }
@@ -869,39 +927,43 @@ button:disabled {
 .write-top-btns {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
+  flex-shrink: 0;
 }
 
+/* 滿版大面積書道畫布：不再受限 284px，直接撐滿手機卡片寬度 */
 .canvas-well {
   width: 100%;
-  max-width: 284px;
+  max-width: 400px;
   aspect-ratio: 1 / 1;
-  margin: 0 auto 10px;
+  margin: 0 auto 8px;
   background: var(--sys-surface-2);
   border-radius: 20px;
-  border: 0.5px solid var(--sys-sep);
+  border: 1px solid var(--sys-sep);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: contain;
 }
 
 .canvas-caption-row {
   display: flex;
   justify-content: space-between;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--sys-label-2);
-  padding: 0 4px 14px;
+  padding: 0 4px 12px;
 }
 
 .write-controls-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1.4fr;
+  grid-template-columns: 1fr 1fr 1.35fr;
   gap: 8px;
 }
 
 .write-verdict {
-  margin-top: 14px;
+  margin-top: 12px;
   padding: 13px 15px;
   border-radius: 14px;
   font-size: 13.5px;
@@ -918,26 +980,33 @@ button:disabled {
 }
 
 .cand-pill {
-  padding: 4px 10px;
+  padding: 5px 11px;
   border-radius: 999px;
   background: var(--sys-surface);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
 }
 
 .write-stepper {
   display: flex;
   justify-content: space-between;
-  margin-top: 14px;
+  gap: 10px;
+  margin-top: 12px;
   padding-top: 12px;
   border-top: 0.5px solid var(--sys-sep);
 }
 
-.stepper-btn {
+.stepper-pill-btn {
+  flex: 1;
+  min-height: 42px;
+  border-radius: 12px;
+  background: var(--sys-surface-2);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--sys-blue);
-  padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ==================== TAB 4: Memory Stats & Continuity Sync ==================== */
@@ -1153,7 +1222,7 @@ button:disabled {
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 14px 16px calc(20px + env(safe-area-inset-bottom));
+  padding: 12px 12px calc(22px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
 }
@@ -1162,7 +1231,8 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  padding: 0 4px;
+  margin-bottom: 8px;
 }
 
 .combo-tag {
@@ -1181,41 +1251,65 @@ button:disabled {
   font-size: 13px;
   color: var(--sys-label-2);
   line-height: 1.5;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   box-shadow: var(--card-shadow);
 }
 
-/* Learn Card Specimen */
+/* Learn Card Specimen & Split Audio */
 .encode-card {
-  padding: 16px;
-  margin-bottom: 14px;
+  padding: 14px 13px 16px;
+  margin-bottom: 12px;
 }
 
 .specimen-split {
   display: grid;
   grid-template-columns: 1.15fr 1fr;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 9px;
+  margin-bottom: 10px;
 }
 
 .specimen-primary {
+  position: relative;
   background: var(--sys-surface-2);
   border-radius: 16px;
-  padding: 14px 8px;
+  border: 1.5px solid transparent;
+  padding: 14px 8px 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
 }
 
+.specimen-primary.is-speaking,
+.ios-audio-main.is-speaking,
+.ios-audio-row.is-speaking,
+.font-box.is-speaking {
+  border-color: var(--sys-blue);
+  background: var(--sys-blue-soft);
+  box-shadow: 0 0 0 3px var(--sys-blue-soft);
+}
+
+.tap-audio-hint {
+  position: absolute;
+  top: 7px;
+  right: 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--sys-blue);
+  opacity: 0.85;
+}
+
 .specimen-kana {
-  font-size: 62px;
+  font-size: 56px;
   font-weight: 600;
   line-height: 1.06;
 }
 
 .specimen-romaji {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
   color: var(--sys-blue);
   margin-top: 2px;
@@ -1224,7 +1318,7 @@ button:disabled {
 .specimen-origin {
   background: var(--sys-surface-2);
   border-radius: 16px;
-  padding: 12px 8px;
+  padding: 10px 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1239,7 +1333,7 @@ button:disabled {
 }
 
 .origin-kanji {
-  font-size: 36px;
+  font-size: 34px;
   font-weight: 500;
   color: var(--sys-indigo);
   line-height: 1.2;
@@ -1251,9 +1345,43 @@ button:disabled {
   margin-top: 2px;
 }
 
+.audio-split-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ios-audio-main {
+  flex: 1;
+  min-width: 0;
+  background: var(--sys-surface-2);
+  border: 1.5px solid transparent;
+  border-radius: 14px;
+  padding: 9px 11px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+}
+
+.audio-seq-btn {
+  flex-shrink: 0;
+  padding: 0 14px;
+  border-radius: 14px;
+  background: var(--sys-blue-soft);
+  color: var(--sys-blue);
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .ios-audio-row {
   width: 100%;
   background: var(--sys-surface-2);
+  border: 1.5px solid transparent;
   border-radius: 14px;
   padding: 10px 12px;
   display: flex;
@@ -1264,8 +1392,8 @@ button:disabled {
 }
 
 .audio-icon-circle {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: var(--sys-blue-soft);
   color: var(--sys-blue);
@@ -1278,7 +1406,8 @@ button:disabled {
 .audio-word-body {
   flex: 1;
   font-size: 14px;
-  line-height: 1.4;
+  line-height: 1.38;
+  min-width: 0;
 }
 
 .audio-word-body .hl {
@@ -1302,9 +1431,9 @@ button:disabled {
   display: flex;
   align-items: baseline;
   gap: 10px;
-  padding: 9px 2px;
+  padding: 8px 2px;
   font-size: 13.5px;
-  line-height: 1.48;
+  line-height: 1.46;
   border-bottom: 0.5px solid var(--sys-sep);
 }
 
@@ -1313,13 +1442,14 @@ button:disabled {
 }
 
 .cue-tag {
-  width: 56px;
+  width: 58px;
   flex-shrink: 0;
   font-size: 12px;
   font-weight: 600;
   color: var(--sys-label-2);
 }
 
+/* 課堂內嵌大尺寸手寫練習區（由 180px 升級為最高 360px 滿寬正方形，面積擴大近 4 倍） */
 .inline-trace-block {
   padding-top: 2px;
 }
@@ -1328,35 +1458,88 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 12px;
-  color: var(--sys-label-2);
-  margin-bottom: 8px;
+  gap: 8px;
+  margin-bottom: 9px;
 }
 
-.inline-trace-meta {
+.trace-title-col {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.trace-title-col strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.trace-title-col span {
+  font-size: 12px;
+  color: var(--sys-label-2);
+}
+
+.inline-trace-btns {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
+}
+
+.trace-tool-pill {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--sys-fill);
+  color: var(--sys-label);
+  font-size: 12.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.trace-tool-pill.primary {
+  background: var(--sys-blue-soft);
+  color: var(--sys-blue);
 }
 
 .inline-pad-box {
-  width: 180px;
-  height: 180px;
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 1 / 1;
   margin: 0 auto;
   background: var(--sys-surface-2);
-  border-radius: 18px;
-  border: 0.5px solid var(--sys-sep);
+  border-radius: 20px;
+  border: 1px solid var(--sys-sep);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: contain;
+}
+
+.learn-trace-feedback {
+  margin-top: 9px;
+  padding: 9px 13px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+}
+.learn-trace-feedback.ok {
+  background: var(--sys-green-soft);
+  color: var(--sys-green);
+}
+.learn-trace-feedback.retry {
+  background: var(--sys-orange-soft);
+  color: var(--sys-orange);
 }
 
 .sheet-bottom-actions {
   margin-top: auto;
   display: flex;
   gap: 10px;
-  padding-top: 8px;
+  padding-top: 6px;
 }
 
 .flex-1 { flex: 1; }
@@ -1576,7 +1759,7 @@ button:disabled {
   overflow-y: auto;
   background: var(--sys-surface);
   border-radius: 24px 24px 0 0;
-  padding: 10px 20px calc(26px + env(safe-area-inset-bottom));
+  padding: 10px 18px calc(26px + env(safe-area-inset-bottom));
   animation: sheetSlideUp 0.3s var(--spring);
 }
 
@@ -1603,6 +1786,7 @@ button:disabled {
 
 .font-box {
   background: var(--sys-surface-2);
+  border: 1.5px solid transparent;
   border-radius: 16px;
   padding: 14px 8px;
   text-align: center;

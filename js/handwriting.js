@@ -1,5 +1,6 @@
 /**
- * handwriting.js — 高解析度書道手寫畫布 ＋ 離線字形雙向覆蓋率自動辨識引擎
+ * handwriting.js — 大尺寸手機友善書道畫布 ＋ 離線字形雙向覆蓋率辨識引擎 (v5.0)
+ * - 針對手機手指觸控最佳化：大面積自適應畫布、防誤滑鎖定、柔順筆鋒與高對比描紅底字
  */
 (function () {
   'use strict';
@@ -100,7 +101,7 @@
     const t = getWorkCtx('tpl', RS);
     t.x.clearRect(0, 0, RS, RS);
     t.x.fillStyle = '#000';
-    const fontSize = kana.length > 1 ? RS * 0.54 : RS * 0.76;
+    const fontSize = kana.length > 1 ? RS * 0.56 : RS * 0.76;
     t.x.font = `500 ${fontSize}px "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif`;
     t.x.textAlign = 'center';
     t.x.textBaseline = 'middle';
@@ -118,14 +119,14 @@
     t.x.fillStyle = '#000';
     t.x.lineCap = 'round';
     t.x.lineJoin = 'round';
-    t.x.lineWidth = RS / 17;
+    t.x.lineWidth = RS / 15.5;
     const k = RS / Math.max(width, height);
 
     strokes.forEach(st => {
       if (!st.length) return;
       if (st.length === 1) {
         t.x.beginPath();
-        t.x.arc(st[0].x * k, st[0].y * k, RS / 34, 0, Math.PI * 2);
+        t.x.arc(st[0].x * k, st[0].y * k, RS / 31, 0, Math.PI * 2);
         t.x.fill();
         return;
       }
@@ -167,9 +168,8 @@
     const mine = ranked[targetRankIdx] || { item: targetItem, score: 0 };
     const best = ranked[0];
 
-    // 判定門檻：兼顧手寫自然變異與混淆字辨別
-    const scorePct = Math.round(Math.min(99, mine.score * 122));
-    const passed = (mine.score >= 0.40 && targetRankIdx <= 4) || (mine.score >= 0.33 && targetRankIdx === 0);
+    const scorePct = Math.round(Math.min(99, mine.score * 124));
+    const passed = (mine.score >= 0.38 && targetRankIdx <= 4) || (mine.score >= 0.31 && targetRankIdx === 0);
 
     return {
       empty: false,
@@ -191,11 +191,14 @@
     let targetItem = null;
     let showGhost = opts.showGhost !== false;
     let peekTimer = null;
-    let logicalSize = 260;
+    let logicalSize = 320;
 
     function resize() {
-      const rect = canvas.parentElement ? canvas.parentElement.getBoundingClientRect() : canvas.getBoundingClientRect();
-      const side = Math.max(180, Math.min(340, Math.floor(rect.width || 260)));
+      const parent = canvas.parentElement;
+      const rect = parent ? parent.getBoundingClientRect() : canvas.getBoundingClientRect();
+      // 填滿父容器寬度（最高支援至 420px 大尺寸書寫區）
+      const rawWidth = Math.floor(rect.width || 320);
+      const side = Math.max(220, Math.min(420, rawWidth));
       logicalSize = side;
       const dpr = Math.min(window.devicePixelRatio || 1, 3);
       canvas.width = side * dpr;
@@ -214,46 +217,57 @@
       const s = logicalSize;
       ctx.clearRect(0, 0, s, s);
 
-      // 1. 米字/十字書道輔助格線
+      // 1. 日式書道米字九宮格輔助線（讓手指在手機上更好抓比例與中心）
       ctx.save();
-      ctx.strokeStyle = isDark() ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.07)';
+      const dark = isDark();
+      // 對角淡線
+      ctx.strokeStyle = dark ? 'rgba(255,255,255,0.045)' : 'rgba(15,23,42,0.04)';
       ctx.lineWidth = 1;
-      ctx.setLineDash([5, 5]);
       ctx.beginPath();
-      ctx.moveTo(s / 2, 12); ctx.lineTo(s / 2, s - 12);
-      ctx.moveTo(12, s / 2); ctx.lineTo(s - 12, s / 2);
+      ctx.moveTo(16, 16); ctx.lineTo(s - 16, s - 16);
+      ctx.moveTo(s - 16, 16); ctx.lineTo(16, s - 16);
+      ctx.stroke();
+
+      // 十字中心基準虛線
+      ctx.strokeStyle = dark ? 'rgba(255,255,255,0.11)' : 'rgba(15,23,42,0.09)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      ctx.moveTo(s / 2, 10); ctx.lineTo(s / 2, s - 10);
+      ctx.moveTo(10, s / 2); ctx.lineTo(s - 10, s / 2);
       ctx.stroke();
       ctx.restore();
 
-      // 2. 描紅淡色底字（若開啟描紅）
+      // 2. 描紅藍圖底字（採用淡雅系統藍，讓黑色／白色手指筆跡與底字形成清晰視覺分離）
       if (showGhost && targetItem) {
         ctx.save();
-        ctx.fillStyle = isDark() ? 'rgba(255,255,255,0.13)' : 'rgba(15,23,42,0.11)';
-        const fontSize = targetItem.kana.length > 1 ? s * 0.48 : s * 0.68;
+        ctx.fillStyle = dark ? 'rgba(10, 132, 255, 0.22)' : 'rgba(0, 122, 255, 0.15)';
+        const fontSize = targetItem.kana.length > 1 ? s * 0.50 : s * 0.70;
         const fontFamily = window.KanaEngine && window.KanaEngine.getSettings().fontStyle === 'mincho'
           ? '"Noto Serif JP", "Hiragino Mincho ProN", serif'
           : '"Noto Sans JP", "Hiragino Kaku Gothic ProN", sans-serif';
         ctx.font = `500 ${fontSize}px ${fontFamily}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(targetItem.kana, s / 2, s / 2 + s * 0.02);
+        ctx.fillText(targetItem.kana, s / 2, s / 2 + s * 0.015);
         ctx.restore();
       }
 
-      // 3. 使用者筆跡
+      // 3. 飽滿滑順的手指筆跡渲染
       const all = current ? [...strokes, current] : strokes;
       ctx.save();
-      ctx.strokeStyle = isDark() ? '#F8FAFC' : '#1E293B';
-      ctx.fillStyle = isDark() ? '#F8FAFC' : '#1E293B';
+      ctx.strokeStyle = dark ? '#FFFFFF' : '#111827';
+      ctx.fillStyle = dark ? '#FFFFFF' : '#111827';
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      ctx.lineWidth = Math.max(6, s / 26);
+      const brushWidth = Math.max(9.5, s / 19);
+      ctx.lineWidth = brushWidth;
 
       all.forEach(st => {
         if (!st || !st.length) return;
         if (st.length === 1) {
           ctx.beginPath();
-          ctx.arc(st[0].x, st[0].y, Math.max(3, s / 52), 0, Math.PI * 2);
+          ctx.arc(st[0].x, st[0].y, brushWidth / 2, 0, Math.PI * 2);
           ctx.fill();
           return;
         }
@@ -277,12 +291,19 @@
     function getPoint(e) {
       const rect = canvas.getBoundingClientRect();
       return {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top
+        x: Math.max(4, Math.min(logicalSize - 4, e.clientX - rect.left)),
+        y: Math.max(4, Math.min(logicalSize - 4, e.clientY - rect.top))
       };
     }
 
     canvas.style.touchAction = 'none';
+    if (canvas.parentElement) {
+      canvas.parentElement.style.touchAction = 'none';
+    }
+
+    // 防止 iOS Safari 在手寫區觸發頁面橡皮筋捲動
+    canvas.addEventListener('touchstart', e => { e.preventDefault(); }, { passive: false });
+    canvas.addEventListener('touchmove', e => { e.preventDefault(); }, { passive: false });
 
     canvas.addEventListener('pointerdown', e => {
       e.preventDefault();
@@ -296,7 +317,7 @@
       e.preventDefault();
       const pt = getPoint(e);
       const last = current[current.length - 1];
-      if (Math.hypot(pt.x - last.x, pt.y - last.y) > 1.8) {
+      if (Math.hypot(pt.x - last.x, pt.y - last.y) > 1.5) {
         current.push(pt);
         redraw();
       }
@@ -327,7 +348,7 @@
         showGhost = !!v;
         redraw();
       },
-      peekGhost(ms = 1200) {
+      peekGhost(ms = 1300) {
         const prev = showGhost;
         showGhost = true;
         redraw();

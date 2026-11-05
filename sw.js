@@ -1,12 +1,12 @@
-const CACHE_NAME = 'kana-science-v40';
+const CACHE_NAME = 'kana-science-v50';
 const ASSETS = [
   './',
   './index.html',
-  './css/style.css?v=4.0',
-  './js/data.js?v=4.0',
-  './js/engine.js?v=4.0',
-  './js/handwriting.js?v=4.0',
-  './js/app.js?v=4.0',
+  './css/style.css?v=5.0',
+  './js/data.js?v=5.0',
+  './js/engine.js?v=5.0',
+  './js/handwriting.js?v=5.0',
+  './js/app.js?v=5.0',
   './manifest.webmanifest'
 ];
 
@@ -25,9 +25,24 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Network-first strategy so updates show immediately when online, with offline fallback
+// Network-first for HTML/CSS/JS; Cache-first for immutable neural MP3 audio clips
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
+  const isAudio = event.request.url.includes('/audio/');
+  if (isAudio) {
+    event.respondWith(
+      caches.match(event.request).then(cached => {
+        if (cached) return cached;
+        return fetch(event.request).then(res => {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then(c => c.put(event.request, clone)).catch(() => {});
+          return res;
+        });
+      })
+    );
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then(res => {
