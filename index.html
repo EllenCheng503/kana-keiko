@@ -1,485 +1,444 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-Hant" data-theme="light">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#C41E3A">
-  <meta name="description" content="假名大師 — 免費學習日語五十音辨識與書寫">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F7F6F2">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0F1117">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <title>假名大師 Kana Master</title>
+  <meta name="apple-mobile-web-app-title" content="かな科学">
+  <meta name="description" content="專為中文母語與具備日語聽感學習者設計：結合漢字字源、聽覺單字錨點、手寫辨識與艾賓浩斯記憶曲線的五十音學習工具">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>かな科学 · 科學學五十音</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;800&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+JP:wght@500;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=3.0">
 </head>
 <body>
 
-  <!-- ==================== APP HEADER ==================== -->
-  <header class="app-header">
-    <div class="header-left">
-      <span class="app-logo">🇯🇵</span>
-      <h1 class="app-title">假名大師</h1>
-    </div>
-    <div class="header-right">
-      <div class="streak-badge" id="headerStreak">
-        <span class="streak-icon">🔥</span>
-        <span class="streak-count" id="headerStreakCount">0</span>
+  <div class="app-shell" id="appShell">
+
+    <!-- ==================== 頂部導覽列 ==================== -->
+    <header class="top-bar">
+      <div class="brand-group">
+        <div class="brand-mark" lang="ja">あ</div>
+        <div class="brand-titles">
+          <div class="brand-name">かな科学</div>
+          <div class="save-pill" id="saveStatusPill">
+            <span class="save-dot"></span>
+            <span id="saveStatusText">自動記憶中</span>
+          </div>
+        </div>
       </div>
-      <button class="btn-icon" id="btnThemeToggle" aria-label="切換深色/淺色模式">
-        🌙
+
+      <div class="top-actions">
+        <div class="streak-chip" title="連續學習天數">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2c.6 3.6-1.5 5.9-3.1 7.6-1.8 1.9-2.9 3.6-2.9 6.1A6 6 0 0 0 12 21.7a6 6 0 0 0 6-6c0-3.3-1.8-5.7-3.4-7.4-.5 1.8-1.7 2.8-2.9 3.2.8-2.6.9-5.8.3-9.5z"/></svg>
+          <span id="headerStreak">0</span>
+        </div>
+        <button class="chip-btn" id="btnFontToggle" title="切換黑體（招牌常用）與明體（書本菜單常用）">
+          <span id="fontToggleLabel">黑體</span>
+        </button>
+        <button class="icon-btn" id="btnThemeToggle" aria-label="切換深淺色主題">
+          <svg id="iconMoon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg id="iconSun" class="hidden" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- 無痕或儲存受限警告 -->
+    <div class="storage-alert hidden" id="storageAlert">
+      ⚠️ 偵測到無痕模式或瀏覽器限制儲存，關閉分頁後進度可能會消失，建議改用一般視窗開啟。
+    </div>
+
+    <!-- ==================== 主畫面區 ==================== -->
+    <main class="main-scroll" id="mainScroll">
+
+      <!-- ========== TAB 1：今日科學學習路徑 ========== -->
+      <section class="tab-page active" id="page-home">
+        <!-- 主行動英雄卡 -->
+        <div class="hero-card">
+          <div class="hero-top">
+            <span class="science-tag">🧠 漢字字源 × 聽覺單字錨點</span>
+            <span class="goal-pill" id="dailyGoalBadge">今日 0 / 15 題</span>
+          </div>
+
+          <h2 class="hero-title" id="heroLessonTitle">第 1 課 · あ行（母音）</h2>
+          <p class="hero-desc" id="heroLessonDesc">每次只學 5 個字：先連結熟悉的漢字與日語單字發音，手指描一次，立即進行雙向記憶提取。</p>
+
+          <div class="hero-kana-strip" id="heroKanaStrip" lang="ja">
+            <!-- JS 動態填入本課 5 字預覽 -->
+          </div>
+
+          <button class="primary-cta" id="btnHeroStart">
+            <span id="btnHeroStartLabel">開始 3 分鐘微課程</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>
+
+          <div class="hero-progress-row">
+            <div class="mini-progress-item">
+              <div class="mini-progress-head">
+                <span>平假名清音</span>
+                <strong id="homeHiraCount">0 / 46</strong>
+              </div>
+              <div class="bar-track"><div class="bar-fill" id="homeHiraBar" style="width:0%"></div></div>
+            </div>
+            <div class="mini-progress-item">
+              <div class="mini-progress-head">
+                <span>片假名清音</span>
+                <strong id="homeKataCount">0 / 46</strong>
+              </div>
+              <div class="bar-track"><div class="bar-fill indigo" id="homeKataBar" style="width:0%"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 兩個科學強化快捷卡 -->
+        <div class="quick-grid">
+          <button class="quick-card" id="btnSmartReview">
+            <div class="quick-icon emerald-bg">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              <span class="due-badge hidden" id="dueBadgeCount">0</span>
+            </div>
+            <div class="quick-body">
+              <strong>智慧弱點複習</strong>
+              <span id="smartReviewSub">依遺忘曲線與錯題排序</span>
+            </div>
+          </button>
+
+          <button class="quick-card" id="btnConfusableBlitz">
+            <div class="quick-icon amber-bg">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 3H3v5"/><path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/><path d="m15 9 6-6"/></svg>
+            </div>
+            <div class="quick-body">
+              <strong>易混淆字特訓</strong>
+              <span>さ/ち · る/ろ · シ/ツ 秒殺</span>
+            </div>
+          </button>
+        </div>
+
+        <!-- 課程章節切換與單元清單 -->
+        <div class="section-header">
+          <h3>完整科學課程地圖</h3>
+          <span class="section-meta" id="courseDoneSummary">0 / 38 課完成</span>
+        </div>
+
+        <div class="seg-tabs" id="chapterTabs">
+          <!-- JS 生成：平假名 / 片假名 / 濁音 / 拗音 -->
+        </div>
+
+        <div class="chapter-subtitle" id="chapterSubtitle"></div>
+
+        <div class="lesson-list" id="lessonList">
+          <!-- JS 生成課程卡片 -->
+        </div>
+      </section>
+
+      <!-- ========== TAB 2：互動五十音表 ========== -->
+      <section class="tab-page" id="page-chart">
+        <div class="chart-controls-card">
+          <div class="seg-row">
+            <div class="seg-control" id="chartScriptTabs">
+              <button class="seg-btn active" data-script="h">平假名</button>
+              <button class="seg-btn" data-script="k">片假名</button>
+            </div>
+            <div class="seg-control" id="chartSetTabs">
+              <button class="seg-btn active" data-set="base">清音</button>
+              <button class="seg-btn" data-set="daku">濁音</button>
+              <button class="seg-btn" data-set="yoon">拗音</button>
+            </div>
+          </div>
+          <div class="chart-legend">
+            <span>點擊任一格可聽發音、看漢字字源與易混淆比較</span>
+            <div class="legend-dots">
+              <i><em class="lv-0"></em>未學</i>
+              <i><em class="lv-1"></em>初識</i>
+              <i><em class="lv-2"></em>鞏固</i>
+              <i><em class="lv-3"></em>熟練</i>
+            </div>
+          </div>
+        </div>
+
+        <div class="gojuon-grid" id="gojuonGrid">
+          <!-- JS 生成 5 欄音圖 -->
+        </div>
+      </section>
+
+      <!-- ========== TAB 3：書道手寫道場 ========== -->
+      <section class="tab-page" id="page-write">
+        <div class="write-top-controls">
+          <div class="seg-tabs compact" id="writePoolTabs">
+            <button class="seg-pill active" data-pool="current">本課假名</button>
+            <button class="seg-pill" data-pool="h-base">平假名</button>
+            <button class="seg-pill" data-pool="k-base">片假名</button>
+            <button class="seg-pill" data-pool="confuse">易混淆字</button>
+          </div>
+
+          <div class="write-mode-bar">
+            <button class="mode-switch active" data-wmode="trace" id="btnModeTrace">描紅記憶（顯示底字）</button>
+            <button class="mode-switch" data-wmode="blind" id="btnModeBlind">盲寫提取（遮住底字）</button>
+          </div>
+        </div>
+
+        <div class="write-stage-card">
+          <div class="write-prompt-row">
+            <div class="write-sound-group">
+              <span class="write-romaji-badge" id="writeRomaji">a</span>
+              <div class="write-word-info" id="writeWordInfo">🌧️ あめ · 雨</div>
+            </div>
+            <div class="write-prompt-actions">
+              <button class="icon-circle-btn" id="btnWriteSpeak" title="播放發音">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+              </button>
+              <button class="chip-btn" id="btnWritePeek">偷看一眼 👀</button>
+            </div>
+          </div>
+
+          <div class="pad-frame">
+            <canvas id="dojoCanvas"></canvas>
+          </div>
+
+          <div class="pad-meta-row">
+            <span class="stroke-pill" id="dojoStrokeInfo">筆畫：0 / 3 畫</span>
+            <span class="etym-mini" id="dojoEtymHint">漢字來源：安</span>
+          </div>
+
+          <div class="write-btn-row">
+            <button class="secondary-btn" id="btnDojoUndo">復原一筆</button>
+            <button class="secondary-btn" id="btnDojoClear">清空重寫</button>
+            <button class="primary-btn" id="btnDojoCheck">檢查筆跡 ✓</button>
+          </div>
+
+          <!-- 自動批改結果區 -->
+          <div class="write-verdict hidden" id="dojoVerdict"></div>
+
+          <div class="write-nav-row">
+            <button class="ghost-nav-btn" id="btnWritePrev">← 上一字</button>
+            <span class="write-pos" id="writePosText">1 / 5</span>
+            <button class="ghost-nav-btn" id="btnWriteNext">下一字 →</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== TAB 4：記憶科學與進度備份 ========== -->
+      <section class="tab-page" id="page-stats">
+        <div class="stats-overview-grid">
+          <div class="stat-tile">
+            <span class="stat-val" id="statLearnedTotal">0</span>
+            <span class="stat-lbl">已認識假名</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-val" id="statAccTotal">--%</span>
+            <span class="stat-lbl">提取正確率</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-val" id="statReviewsTotal">0</span>
+            <span class="stat-lbl">累計記憶提取</span>
+          </div>
+        </div>
+
+        <div class="surface-card">
+          <div class="card-title-row">
+            <h3>🧠 艾賓浩斯記憶分佈</h3>
+            <span class="muted-note">自動排程防遺忘</span>
+          </div>
+          <div class="memory-bars" id="memoryStageBars">
+            <!-- JS 渲染四階段記憶條 -->
+          </div>
+        </div>
+
+        <div class="surface-card">
+          <div class="card-title-row">
+            <h3>🎯 個人易錯／弱點雷達</h3>
+            <button class="small-action-btn" id="btnDrillWeakest">針對弱點特訓 →</button>
+          </div>
+          <div class="weak-list" id="weakListContainer">
+            <!-- JS 渲染弱點假名 -->
+          </div>
+        </div>
+
+        <div class="surface-card backup-card">
+          <div class="backup-status-ok">
+            <span class="ok-badge">✓ 進度永久保存已啟用</span>
+            <p>你的所有學習紀錄、熟練度與複習排程都會即時儲存在這台手機／電腦的瀏覽器中，<strong>重新整理或關掉網頁都不會重來</strong>。若要更換手機，可匯出備份檔還原。</p>
+          </div>
+          <div class="backup-actions">
+            <button class="secondary-btn" id="btnExportBackup">📥 匯出進度備份</button>
+            <button class="secondary-btn" id="btnImportBackup">📤 匯入還原</button>
+            <input type="file" id="fileImportInput" accept=".json,application/json" class="hidden">
+          </div>
+          <button class="danger-link-btn" id="btnResetProgress">重置所有學習進度</button>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ==================== 底部單手拇指導覽列 ==================== -->
+    <nav class="bottom-nav" aria-label="主選單">
+      <button class="nav-tab active" data-tab="home">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1V9.5z"/></svg>
+        <span>學習路徑</span>
       </button>
-    </div>
-  </header>
+      <button class="nav-tab" data-tab="chart">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        <span>五十音表</span>
+      </button>
+      <button class="nav-tab" data-tab="write">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/></svg>
+        <span>手寫道場</span>
+      </button>
+      <button class="nav-tab" data-tab="stats">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+        <span>記憶數據</span>
+      </button>
+    </nav>
 
-  <!-- ==================== MAIN CONTENT ==================== -->
-  <main class="app-main">
-
-    <!-- ========== HOME SCREEN ========== -->
-    <section class="screen active" id="home">
-      <div class="welcome-section">
-        <div class="level-badge" id="homeLevelBadge">
-          <span class="level-number" id="homeLevelNum">1</span>
-          <span class="level-label">級</span>
-        </div>
-        <h2 class="welcome-text" id="welcomeText">開始你的五十音之旅！</h2>
-        <div class="xp-bar-container">
-          <div class="progress-bar">
-            <div class="progress-fill" id="homeXPBar" style="width: 0%"></div>
-          </div>
-          <span class="xp-text" id="homeXPText">0 / 100 XP</span>
-        </div>
-      </div>
-
-      <div class="stats-row" id="homeStatsRow">
-        <div class="stat-card">
-          <span class="stat-number" id="statDue">0</span>
-          <span class="stat-label">待複習</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-number" id="statDone">0</span>
-          <span class="stat-label">今日完成</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-number" id="statAccuracy">--%</span>
-          <span class="stat-label">正確率</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-number" id="statLearned">0</span>
-          <span class="stat-label">已學會</span>
-        </div>
-      </div>
-
-      <div class="action-buttons">
-        <button class="btn btn-primary btn-lg action-btn" id="btnStartLearn">
-          <span class="action-icon">📖</span>
-          <span class="action-text">
-            <strong>學習新假名</strong>
-            <small>逐步認識五十音</small>
-          </span>
+    <!-- ==================== 沉浸式科學學習／測驗全螢幕視窗 ==================== -->
+    <div class="session-overlay hidden" id="sessionOverlay">
+      <div class="session-topbar">
+        <button class="icon-btn" id="btnSessionClose" aria-label="離開">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
-        <button class="btn btn-primary btn-lg action-btn" id="btnStartReview" style="--btn-hue: 150;">
-          <span class="action-icon">🔄</span>
-          <span class="action-text">
-            <strong>開始複習</strong>
-            <small id="reviewDueText">0 個待複習</small>
-          </span>
-        </button>
-        <button class="btn btn-primary btn-lg action-btn" id="btnStartQuiz" style="--btn-hue: 220;">
-          <span class="action-icon">✅</span>
-          <span class="action-text">
-            <strong>測驗挑戰</strong>
-            <small>測試你的記憶</small>
-          </span>
-        </button>
-        <button class="btn btn-primary btn-lg action-btn" id="btnStartWrite" style="--btn-hue: 280;">
-          <span class="action-icon">✍️</span>
-          <span class="action-text">
-            <strong>書寫練習</strong>
-            <small>手寫假名</small>
-          </span>
-        </button>
-      </div>
-
-      <!-- Mini Kana Grid Preview -->
-      <div class="card home-grid-preview">
-        <h3>📊 五十音進度</h3>
-        <div class="mini-grid" id="homeMiniGrid">
-          <!-- Filled by JS -->
+        <div class="session-progress-track">
+          <div class="session-progress-fill" id="sessionProgressBar" style="width:0%"></div>
         </div>
-        <button class="btn btn-outline btn-sm" id="btnViewProgress">查看完整進度 →</button>
-      </div>
-    </section>
-
-    <!-- ========== LEARN SCREEN ========== -->
-    <section class="screen" id="learn">
-      <!-- Kana type selector -->
-      <div class="kana-type-selector">
-        <button class="pill-tab active" data-kana-type="hiragana">平假名</button>
-        <button class="pill-tab" data-kana-type="katakana">片假名</button>
+        <span class="session-step-label" id="sessionStepLabel">1 / 5</span>
       </div>
 
-      <!-- Row selector -->
-      <div class="row-selector" id="rowSelector">
-        <!-- Filled by JS with pill tabs for each row -->
-      </div>
+      <!-- 階段 A：多感官建檔與手指描紅 (Learn View) -->
+      <div class="session-body hidden" id="sessionLearnBody">
+        <div class="learn-stage-badge-row">
+          <span class="phase-pill">STEP 1 · 漢字字源與聽覺建檔</span>
+          <button class="skip-to-quiz-btn" id="btnSkipToQuiz">直接測驗 →</button>
+        </div>
 
-      <!-- Learn Card -->
-      <div class="learn-card-container">
-        <div class="learn-card" id="learnCard">
-          <div class="learn-card-inner">
-            <!-- Front -->
-            <div class="learn-card-front">
-              <div class="kana-display" id="learnKana">あ</div>
-              <div class="romaji-display" id="learnRomaji">a</div>
-              <button class="btn btn-icon speak-btn" id="btnSpeak" aria-label="朗讀">🔊</button>
+        <div class="lesson-tip-banner hidden" id="lessonTipBanner"></div>
+
+        <!-- 主字形與字源橋接卡 -->
+        <div class="encode-hero-card">
+          <div class="encode-main-row">
+            <div class="encode-kana-box">
+              <span class="encode-kana" id="encodeKana" lang="ja">あ</span>
+              <span class="encode-romaji" id="encodeRomaji">a</span>
             </div>
-            <!-- Back -->
-            <div class="learn-card-back">
-              <div class="kana-display kana-small" id="learnKanaBack">あ</div>
-              <div class="romaji-display" id="learnRomajiBack">a</div>
-              <div class="mnemonic-box" id="learnMnemonic">
-                <span class="mnemonic-label">記憶法 💡</span>
-                <p class="mnemonic-text">A person bowing and Apologizing</p>
-              </div>
-              <div class="stroke-info" id="learnStrokeInfo">
-                <span>筆畫數：<strong id="learnStrokeCount">3</strong></span>
+
+            <div class="etym-bridge-box" id="encodeEtymBox">
+              <span class="etym-caption">漢字來源</span>
+              <div class="etym-kanji" id="encodeKanji" lang="ja">安</div>
+              <span class="etym-pair-tag" id="encodePairTag">對應片假名：ア</span>
+            </div>
+          </div>
+
+          <button class="audio-anchor-bar" id="btnEncodeSpeak">
+            <span class="speaker-circle">🔊</span>
+            <div class="audio-word-text" id="encodeWordDisplay">
+              <!-- JS 填入：あ · あめ (ame) 雨 🌧️ -->
+            </div>
+            <span class="tap-replay">重聽</span>
+          </button>
+
+          <div class="cognitive-cues" id="encodeCues">
+            <!-- JS 填入：字源解析、記憶口訣、易混淆雷達 -->
+          </div>
+
+          <!-- 內嵌手指描紅區（具身肌肉記憶） -->
+          <div class="mini-trace-section">
+            <div class="mini-trace-head">
+              <span>✍️ 用手指跟著描一遍（建立肌肉記憶）</span>
+              <div class="mini-trace-tools">
+                <span id="learnTraceStrokes">0 / 3 畫</span>
+                <button class="tiny-btn" id="btnLearnTraceClear">重描</button>
               </div>
             </div>
-          </div>
-        </div>
-
-        <div class="card-hint">
-          <span>👆 點擊卡片翻轉</span>
-        </div>
-      </div>
-
-      <!-- Navigation -->
-      <div class="learn-nav">
-        <button class="btn btn-icon nav-arrow" id="btnPrevKana" aria-label="上一個">◀</button>
-        <span class="learn-counter" id="learnCounter">1 / 5</span>
-        <button class="btn btn-icon nav-arrow" id="btnNextKana" aria-label="下一個">▶</button>
-      </div>
-
-      <!-- SRS Review Buttons -->
-      <div class="srs-buttons" id="srsButtons">
-        <p class="srs-prompt">你記住了嗎？</p>
-        <div class="srs-btn-row">
-          <button class="btn srs-btn srs-again" data-quality="1">
-            <span class="srs-label">重來</span>
-            <span class="srs-hint">完全忘了</span>
-          </button>
-          <button class="btn srs-btn srs-hard" data-quality="3">
-            <span class="srs-label">困難</span>
-            <span class="srs-hint">想很久</span>
-          </button>
-          <button class="btn srs-btn srs-good" data-quality="4">
-            <span class="srs-label">不錯</span>
-            <span class="srs-hint">想了一下</span>
-          </button>
-          <button class="btn srs-btn srs-easy" data-quality="5">
-            <span class="srs-label">簡單</span>
-            <span class="srs-hint">秒答</span>
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <!-- ========== QUIZ SCREEN ========== -->
-    <section class="screen" id="quiz">
-      <!-- Quiz Setup -->
-      <div class="quiz-setup" id="quizSetup">
-        <h2>選擇測驗模式</h2>
-
-        <div class="quiz-mode-cards">
-          <button class="card quiz-mode-card" data-mode="kana-to-romaji">
-            <span class="mode-icon">🔤</span>
-            <strong>假名 → 拼音</strong>
-            <small>看假名，選正確拼音</small>
-          </button>
-          <button class="card quiz-mode-card" data-mode="romaji-to-kana">
-            <span class="mode-icon">🎯</span>
-            <strong>拼音 → 假名</strong>
-            <small>看拼音，選正確假名</small>
-          </button>
-          <button class="card quiz-mode-card" data-mode="listening">
-            <span class="mode-icon">👂</span>
-            <strong>聽力辨識</strong>
-            <small>聽發音，選正確假名</small>
-          </button>
-          <button class="card quiz-mode-card" data-mode="kana-to-kana">
-            <span class="mode-icon">🔄</span>
-            <strong>平↔片 配對</strong>
-            <small>平假名與片假名互轉</small>
-          </button>
-        </div>
-
-        <div class="quiz-settings">
-          <label class="setting-row">
-            <span>測驗範圍</span>
-            <select id="quizScope" class="select-input">
-              <option value="learned">已學過的假名</option>
-              <option value="hiragana">所有平假名</option>
-              <option value="katakana">所有片假名</option>
-              <option value="all">全部</option>
-            </select>
-          </label>
-          <label class="setting-row">
-            <span>題數</span>
-            <select id="quizCount" class="select-input">
-              <option value="10">10 題</option>
-              <option value="20" selected>20 題</option>
-              <option value="46">46 題（全行）</option>
-            </select>
-          </label>
-        </div>
-
-        <button class="btn btn-primary btn-lg" id="btnStartQuizGo" style="width:100%; margin-top: 16px;">
-          開始測驗 🚀
-        </button>
-      </div>
-
-      <!-- Quiz In Progress -->
-      <div class="quiz-active hidden" id="quizActive">
-        <div class="quiz-header">
-          <div class="quiz-progress-bar">
-            <div class="progress-bar">
-              <div class="progress-fill" id="quizProgressBar" style="width: 0%"></div>
+            <div class="mini-pad-wrap">
+              <canvas id="learnTraceCanvas"></canvas>
             </div>
           </div>
-          <div class="quiz-score-row">
-            <span class="quiz-counter" id="quizCounter">1 / 20</span>
-            <span class="quiz-score" id="quizScore">✅ 0 ❌ 0</span>
+        </div>
+
+        <div class="session-footer-nav">
+          <button class="secondary-btn" id="btnLearnPrev">← 上一個</button>
+          <button class="primary-cta flex-1" id="btnLearnNext">記住了，下一個 →</button>
+        </div>
+      </div>
+
+      <!-- 階段 B：漸進式主動提取測驗 (Quiz View) -->
+      <div class="session-body hidden" id="sessionQuizBody">
+        <div class="learn-stage-badge-row">
+          <span class="phase-pill quiz-pill" id="quizTypeBadge">主動提取測驗</span>
+          <span class="combo-pill hidden" id="quizComboPill">連對 🔥 2</span>
+        </div>
+
+        <div class="quiz-stimulus-card" id="quizStimulusCard">
+          <!-- JS 依題型動態渲染 -->
+        </div>
+
+        <div class="quiz-choices-grid" id="quizChoicesGrid">
+          <!-- 4 個大拇指友善選項 -->
+        </div>
+
+        <button class="hint-trigger-btn" id="btnQuizHint">💡 想不起來？看漢字字源提示</button>
+        <div class="quiz-hint-box hidden" id="quizHintBox"></div>
+
+        <!-- 答題即時科學回饋抽屜 -->
+        <div class="quiz-feedback-drawer hidden" id="quizFeedbackDrawer">
+          <div class="fb-header">
+            <span class="fb-status-title" id="fbTitle">答對了！</span>
+            <button class="tiny-btn" id="btnFbSpeak">🔊 再聽一次</button>
           </div>
-        </div>
-
-        <!-- Question -->
-        <div class="quiz-question" id="quizQuestion">
-          <div class="quiz-prompt" id="quizPrompt">這是什麼假名？</div>
-          <div class="quiz-stimulus" id="quizStimulus">
-            <span class="quiz-kana" id="quizKana">あ</span>
-          </div>
-          <button class="btn btn-icon speak-btn" id="btnQuizSpeak" aria-label="朗讀">🔊</button>
-        </div>
-
-        <!-- Answer Options -->
-        <div class="quiz-options" id="quizOptions">
-          <button class="quiz-option" data-index="0">a</button>
-          <button class="quiz-option" data-index="1">ka</button>
-          <button class="quiz-option" data-index="2">sa</button>
-          <button class="quiz-option" data-index="3">ta</button>
-        </div>
-
-        <!-- Feedback Overlay -->
-        <div class="quiz-feedback hidden" id="quizFeedback">
-          <div class="feedback-icon" id="feedbackIcon">✓</div>
-          <div class="feedback-correct-answer" id="feedbackAnswer"></div>
-          <div class="feedback-mnemonic hidden" id="feedbackMnemonic"></div>
-          <button class="btn btn-primary" id="btnQuizNext">下一題 →</button>
+          <div class="fb-detail" id="fbDetail"></div>
+          <button class="primary-cta" id="btnQuizContinue">繼續 →</button>
         </div>
       </div>
 
-      <!-- Quiz Results -->
-      <div class="quiz-results hidden" id="quizResults">
-        <div class="results-header">
-          <span class="results-icon" id="resultsIcon">🎉</span>
-          <h2 id="resultsTitle">做得好！</h2>
-        </div>
-        <div class="results-stats">
-          <div class="result-stat">
-            <span class="result-number" id="resultCorrect">0</span>
-            <span class="result-label">答對</span>
-          </div>
-          <div class="result-stat">
-            <span class="result-number" id="resultWrong">0</span>
-            <span class="result-label">答錯</span>
-          </div>
-          <div class="result-stat">
-            <span class="result-number" id="resultAccuracy">0%</span>
-            <span class="result-label">正確率</span>
-          </div>
-          <div class="result-stat">
-            <span class="result-number" id="resultXP">+0</span>
-            <span class="result-label">XP</span>
-          </div>
-        </div>
-        <div class="results-mistakes hidden" id="resultsMistakes">
-          <h3>需要加強的假名：</h3>
-          <div class="mistakes-list" id="mistakesList"></div>
-        </div>
-        <div class="results-achievements hidden" id="resultsAchievements">
-          <h3>🏆 新成就！</h3>
-          <div class="achievement-list" id="achievementList"></div>
-        </div>
-        <div class="results-actions">
-          <button class="btn btn-primary btn-lg" id="btnQuizRetry">再測一次</button>
-          <button class="btn btn-outline btn-lg" id="btnQuizHome">回首頁</button>
-        </div>
-      </div>
-    </section>
+      <!-- 階段 C：完成結算慶祝 (Summary View) -->
+      <div class="session-body hidden" id="sessionResultBody">
+        <div class="result-celebration-card">
+          <div class="result-badge-icon" id="resultEmoji">🎉</div>
+          <h2 id="resultHeadline">太棒了！完成微課程</h2>
+          <p class="result-sub" id="resultSubtitle">記憶痕跡已寫入艾賓浩斯排程</p>
 
-    <!-- ========== WRITE SCREEN ========== -->
-    <section class="screen" id="write">
-      <div class="write-header">
-        <div class="write-prompt">
-          <span class="write-romaji" id="writeRomaji">a</span>
-          <span class="write-hint-text">寫出這個假名</span>
-        </div>
-        <div class="write-reference" id="writeReference">
-          <span class="reference-char" id="writeRefChar">あ</span>
-        </div>
-      </div>
-
-      <div class="canvas-container">
-        <canvas id="drawCanvas" width="300" height="300"></canvas>
-        <div class="canvas-grid"></div>
-        <div class="stroke-counter" id="strokeCounter">
-          筆畫：<span id="currentStrokes">0</span> / <span id="expectedStrokes">3</span>
-        </div>
-      </div>
-
-      <div class="write-tools">
-        <button class="btn btn-icon" id="btnClearCanvas" aria-label="清除">🗑️</button>
-        <button class="btn btn-icon" id="btnUndoStroke" aria-label="復原">↩️</button>
-        <button class="btn btn-icon" id="btnShowHint" aria-label="提示">💡</button>
-        <button class="btn btn-primary" id="btnCheckWrite">確認 ✓</button>
-      </div>
-
-      <div class="write-nav">
-        <button class="btn btn-icon nav-arrow" id="btnPrevWrite" aria-label="上一個">◀</button>
-        <span class="write-counter" id="writeCounter">1 / 5</span>
-        <button class="btn btn-icon nav-arrow" id="btnNextWrite" aria-label="下一個">▶</button>
-      </div>
-
-      <!-- Write mode selector -->
-      <div class="write-mode-selector">
-        <button class="pill-tab active" data-write-type="hiragana">平假名</button>
-        <button class="pill-tab" data-write-type="katakana">片假名</button>
-      </div>
-      <div class="row-selector" id="writeRowSelector">
-        <!-- Filled by JS -->
-      </div>
-    </section>
-
-    <!-- ========== PROGRESS SCREEN ========== -->
-    <section class="screen" id="progress">
-      <!-- Level & XP -->
-      <div class="card progress-level-card">
-        <div class="level-display">
-          <div class="level-badge level-badge-lg" id="progressLevelBadge">
-            <span class="level-number" id="progressLevelNum">1</span>
-            <span class="level-label">級</span>
-          </div>
-          <div class="level-info">
-            <h3 id="progressLevelTitle">初學者</h3>
-            <div class="progress-bar">
-              <div class="progress-fill" id="progressXPBar" style="width: 0%"></div>
+          <div class="result-metrics">
+            <div class="rm-box">
+              <strong id="resAccVal">100%</strong>
+              <span>提取正確率</span>
             </div>
-            <span class="xp-text" id="progressXPText">0 / 100 XP</span>
+            <div class="rm-box">
+              <strong id="resCountVal">5 字</strong>
+              <span>記憶升級</span>
+            </div>
+          </div>
+
+          <div class="result-review-chars" id="resultCharsList"></div>
+
+          <div class="result-btns">
+            <button class="primary-cta" id="btnResultNextAction">繼續下一課 →</button>
+            <button class="secondary-btn full-w" id="btnResultHome">回到學習路徑</button>
           </div>
         </div>
-      </div>
-
-      <!-- Streak & Stats -->
-      <div class="stats-row">
-        <div class="stat-card stat-streak">
-          <span class="stat-icon">🔥</span>
-          <span class="stat-number" id="progressStreak">0</span>
-          <span class="stat-label">天連勝</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-icon">📝</span>
-          <span class="stat-number" id="progressTotalReviews">0</span>
-          <span class="stat-label">總複習</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-icon">🎯</span>
-          <span class="stat-number" id="progressAccuracy">--%</span>
-          <span class="stat-label">正確率</span>
-        </div>
-      </div>
-
-      <!-- Kana Mastery Grid -->
-      <div class="card mastery-grid-card">
-        <div class="mastery-header">
-          <h3>五十音掌握度</h3>
-          <div class="mastery-tabs">
-            <button class="pill-tab active" data-grid-type="hiragana">平假名</button>
-            <button class="pill-tab" data-grid-type="katakana">片假名</button>
-          </div>
-        </div>
-        <div class="mastery-legend">
-          <span class="legend-item"><span class="legend-dot mastery-0"></span>未學</span>
-          <span class="legend-item"><span class="legend-dot mastery-1"></span>學習中</span>
-          <span class="legend-item"><span class="legend-dot mastery-2"></span>複習中</span>
-          <span class="legend-item"><span class="legend-dot mastery-3"></span>已掌握</span>
-        </div>
-        <div class="mastery-grid" id="masteryGrid">
-          <!-- Filled by JS — 5x10 grid of kana cells -->
-        </div>
-      </div>
-
-      <!-- Achievements -->
-      <div class="card achievements-card">
-        <h3>🏆 成就</h3>
-        <div class="achievements-grid" id="achievementsGrid">
-          <!-- Filled by JS -->
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <!-- ==================== BOTTOM TAB BAR ==================== -->
-  <nav class="tab-bar">
-    <button class="tab-item active" data-screen="home">
-      <span class="tab-icon">🏠</span>
-      <span class="tab-label">首頁</span>
-    </button>
-    <button class="tab-item" data-screen="learn">
-      <span class="tab-icon">📖</span>
-      <span class="tab-label">學習</span>
-    </button>
-    <button class="tab-item" data-screen="quiz">
-      <span class="tab-icon">✅</span>
-      <span class="tab-label">測驗</span>
-    </button>
-    <button class="tab-item" data-screen="write">
-      <span class="tab-icon">✍️</span>
-      <span class="tab-label">書寫</span>
-    </button>
-    <button class="tab-item" data-screen="progress">
-      <span class="tab-icon">📊</span>
-      <span class="tab-label">進度</span>
-    </button>
-  </nav>
-
-  <!-- ==================== MODAL ==================== -->
-  <div class="modal hidden" id="modal">
-    <div class="modal-backdrop" id="modalBackdrop"></div>
-    <div class="modal-content" id="modalContent">
-      <button class="btn-icon modal-close" id="modalClose" aria-label="關閉">✕</button>
-      <div class="modal-body" id="modalBody">
-        <!-- Dynamic content -->
       </div>
     </div>
+
+    <!-- ==================== 五十音單字詳情底部彈出卡 (Bottom Sheet) ==================== -->
+    <div class="sheet-backdrop hidden" id="detailSheetBackdrop">
+      <div class="bottom-sheet" id="detailSheet" role="dialog" aria-modal="true">
+        <div class="sheet-handle"></div>
+        <button class="sheet-close-btn" id="btnSheetClose" aria-label="關閉">✕</button>
+        <div id="detailSheetContent"></div>
+      </div>
+    </div>
+
+    <!-- 輕量提示 Toast -->
+    <div class="app-toast hidden" id="appToast"></div>
+
   </div>
 
-  <!-- ==================== TOAST ==================== -->
-  <div class="toast hidden" id="toast">
-    <span class="toast-icon" id="toastIcon">✓</span>
-    <span class="toast-text" id="toastText">成功！</span>
-  </div>
-
-  <!-- ==================== CONFETTI CONTAINER ==================== -->
-  <div class="confetti-container" id="confettiContainer"></div>
-
-  <!-- ==================== SCRIPTS ==================== -->
-  <script src="js/data.js"></script>
-  <script src="js/srs.js"></script>
-  <script src="js/progress.js"></script>
-  <script src="js/quiz.js"></script>
-  <script src="js/draw.js"></script>
-  <script src="js/app.js"></script>
-
+  <script src="js/data.js?v=3.0"></script>
+  <script src="js/engine.js?v=3.0"></script>
+  <script src="js/handwriting.js?v=3.0"></script>
+  <script src="js/app.js?v=3.0"></script>
 </body>
 </html>

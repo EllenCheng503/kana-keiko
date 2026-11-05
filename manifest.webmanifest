@@ -1,0 +1,10 @@
+{
+  "name": "かな科学 · 科學學五十音",
+  "short_name": "かな科学",
+  "description": "結合漢字字源、熟悉單字聽感、手寫辨識與艾賓浩斯記憶曲線的日語五十音學習網頁",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#F7F6F2",
+  "theme_color": "#F7F6F2",
+  "lang": "zh-Hant"
+}

@@ -1,135 +1,463 @@
-window.KanaData = {
-  ROWS: [
-    { id: 'vowel', name: '母音', nameEn: 'Vowels', chars: ['あ','い','う','え','お'] },
-    { id: 'k', name: 'か行', nameEn: 'K-row', chars: ['か','き','く','け','こ'] },
-    { id: 's', name: 'さ行', nameEn: 'S-row', chars: ['さ','し','す','せ','そ'] },
-    { id: 't', name: 'た行', nameEn: 'T-row', chars: ['た','ち','つ','て','と'] },
-    { id: 'n', name: 'な行', nameEn: 'N-row', chars: ['な','に','ぬ','ね','の'] },
-    { id: 'h', name: 'は行', nameEn: 'H-row', chars: ['は','ひ','ふ','へ','ほ'] },
-    { id: 'm', name: 'ま行', nameEn: 'M-row', chars: ['ま','み','む','め','も'] },
-    { id: 'y', name: 'や行', nameEn: 'Y-row', chars: ['や','ゆ','よ'] },
-    { id: 'r', name: 'ら行', nameEn: 'R-row', chars: ['ら','り','る','れ','ろ'] },
-    { id: 'w', name: 'わ行', nameEn: 'W-row', chars: ['わ','を','ん'] }
-  ],
-  HIRAGANA: [
-    { char: 'あ', romaji: 'a', row: 'vowel', type: 'hiragana', strokeCount: 3, mnemonic: 'An Apple with a stem. Look at the round shape of an apple.', confusables: ['お', 'め'] },
-    { char: 'い', romaji: 'i', row: 'vowel', type: 'hiragana', strokeCount: 2, mnemonic: 'Two Iguanacorns standing side by side. Or simply Hawaii.', confusables: ['り', 'に'] },
-    { char: 'う', romaji: 'u', row: 'vowel', type: 'hiragana', strokeCount: 2, mnemonic: 'U is for the letter U on its side, being thrown by an Umpire.', confusables: ['つ', 'ら'] },
-    { char: 'え', romaji: 'e', row: 'vowel', type: 'hiragana', strokeCount: 2, mnemonic: 'An Exotic bird with a feather on its head.', confusables: ['ん'] },
-    { char: 'お', romaji: 'o', row: 'vowel', type: 'hiragana', strokeCount: 3, mnemonic: 'An Owl with two faces on the side of a tree.', confusables: ['あ', 'む'] },
-    
-    { char: 'か', romaji: 'ka', row: 'k', type: 'hiragana', strokeCount: 3, mnemonic: 'Someone doing a Karate kick and sweating from the effort.', confusables: ['が'] },
-    { char: 'き', romaji: 'ki', row: 'k', type: 'hiragana', strokeCount: 4, mnemonic: 'A Key with two ridges used to open a door.', confusables: ['さ', 'ち'] },
-    { char: 'く', romaji: 'ku', row: 'k', type: 'hiragana', strokeCount: 1, mnemonic: 'The beak of a Cuckoo bird.', confusables: ['へ'] },
-    { char: 'け', romaji: 'ke', row: 'k', type: 'hiragana', strokeCount: 3, mnemonic: 'A Keg of beer, slightly slanted.', confusables: ['は', 'に'] },
-    { char: 'こ', romaji: 'ko', row: 'k', type: 'hiragana', strokeCount: 2, mnemonic: 'Two Koi fish swimming in a pond, one on top and one on bottom.', confusables: ['に', 'い'] },
+/**
+ * data.js — 科學五十音完整資料庫
+ * 專為「繁體中文母語者 ＋ 具備基礎日語聽感學習者」設計：
+ * 1. 漢字字源橋接 (Etymology)：利用已知漢字秒記平片假名演化
+ * 2. 圖像諧音聯想 (Mnemonic)：雙重編碼強化視覺提取
+ * 3. 熟悉單字錨點 (Word Anchor)：連結聽覺詞彙與字形（如 すし、ねこ、コーヒー）
+ * 4. 易混淆字對比雷達 (Contrastive Pairs)：一眼看穿相似字差異
+ */
+(function () {
+  'use strict';
 
-    { char: 'さ', romaji: 'sa', row: 's', type: 'hiragana', strokeCount: 3, mnemonic: 'A Samurai sword pointing downwards.', confusables: ['き', 'ち'] },
-    { char: 'し', romaji: 'shi', row: 's', type: 'hiragana', strokeCount: 1, mnemonic: 'A Shepherd\'s crook used to herd sheep.', confusables: ['も', 'ん'] },
-    { char: 'す', romaji: 'su', row: 's', type: 'hiragana', strokeCount: 2, mnemonic: 'A Swing circling around a pole.', confusables: ['む', 'よ'] },
-    { char: 'せ', romaji: 'se', row: 's', type: 'hiragana', strokeCount: 3, mnemonic: 'Setting the table, or someone Saying something with a big mouth.', confusables: ['や'] },
-    { char: 'そ', romaji: 'so', row: 's', type: 'hiragana', strokeCount: 1, mnemonic: 'A zigzag Sewing stitch.', confusables: ['ろ', 'る'] },
+  const BASE_ROWS = [
+    ['あ行（母音）', [['あ','ア','a',3,2],['い','イ','i',2,2],['う','ウ','u',2,3],['え','エ','e',2,3],['お','オ','o',3,3]]],
+    ['か行', [['か','カ','ka',3,2],['き','キ','ki',4,3],['く','ク','ku',1,2],['け','ケ','ke',3,3],['こ','コ','ko',2,2]]],
+    ['さ行', [['さ','サ','sa',3,3],['し','シ','shi',1,3],['す','ス','su',2,2],['せ','セ','se',3,2],['そ','ソ','so',1,2]]],
+    ['た行', [['た','タ','ta',4,3],['ち','チ','chi',2,3],['つ','ツ','tsu',1,3],['て','テ','te',1,3],['と','ト','to',2,2]]],
+    ['な行', [['な','ナ','na',4,2],['に','ニ','ni',3,2],['ぬ','ヌ','nu',2,2],['ね','ネ','ne',2,4],['の','ノ','no',1,1]]],
+    ['は行', [['は','ハ','ha',3,2],['ひ','ヒ','hi',1,2],['ふ','フ','fu',4,1],['へ','ヘ','he',1,1],['ほ','ホ','ho',4,4]]],
+    ['ま行', [['ま','マ','ma',3,2],['み','ミ','mi',2,3],['む','ム','mu',3,2],['め','メ','me',2,2],['も','モ','mo',3,3]]],
+    ['や行', [['や','ヤ','ya',3,2],null,['ゆ','ユ','yu',2,2],null,['よ','ヨ','yo',2,3]]],
+    ['ら行', [['ら','ラ','ra',2,2],['り','リ','ri',2,2],['る','ル','ru',1,2],['れ','レ','re',2,1],['ろ','ロ','ro',1,3]]],
+    ['わ行・ん', [['わ','ワ','wa',2,2],null,['を','ヲ','wo',3,3],null,['ん','ン','n',1,2]]]
+  ];
 
-    { char: 'た', romaji: 'ta', row: 't', type: 'hiragana', strokeCount: 4, mnemonic: 'Looks like the letters T and A right next to each other.', confusables: ['な', 'に'] },
-    { char: 'ち', romaji: 'chi', row: 't', type: 'hiragana', strokeCount: 2, mnemonic: 'A Cheerleader doing a high kick.', confusables: ['さ', 'ら'] },
-    { char: 'つ', romaji: 'tsu', row: 't', type: 'hiragana', strokeCount: 1, mnemonic: 'A Tsunami wave crashing down.', confusables: ['う', 'っ'] },
-    { char: 'て', romaji: 'te', row: 't', type: 'hiragana', strokeCount: 1, mnemonic: 'A dog\'s Tail curving downwards.', confusables: ['そ', 'と'] },
-    { char: 'と', romaji: 'to', row: 't', type: 'hiragana', strokeCount: 2, mnemonic: 'A Thorn stuck in somebody\'s Toe.', confusables: ['て'] },
+  const DAKU_ROWS = [
+    ['が行（濁音）', [['が','ガ','ga',5,4],['ぎ','ギ','gi',6,5],['ぐ','グ','gu',3,4],['げ','ゲ','ge',5,5],['ご','ゴ','go',4,4]]],
+    ['ざ行（濁音）', [['ざ','ザ','za',5,5],['じ','ジ','ji',3,5],['ず','ズ','zu',4,4],['ぜ','ゼ','ze',5,4],['ぞ','ゾ','zo',3,4]]],
+    ['だ行（濁音）', [['だ','ダ','da',6,5],['ぢ','ヂ','ji',4,5],['づ','ヅ','zu',3,5],['で','デ','de',3,5],['ど','ド','do',4,4]]],
+    ['ば行（濁音）', [['ば','バ','ba',5,4],['び','ビ','bi',3,4],['ぶ','ブ','bu',6,3],['べ','ベ','be',3,3],['ぼ','ボ','bo',6,6]]],
+    ['ぱ行（半濁音）', [['ぱ','パ','pa',4,3],['ぴ','ピ','pi',2,3],['ぷ','プ','pu',5,2],['ぺ','ペ','pe',2,2],['ぽ','ポ','po',5,5]]]
+  ];
 
-    { char: 'な', romaji: 'na', row: 'n', type: 'hiragana', strokeCount: 4, mnemonic: 'A Nun praying in front of a cross.', confusables: ['た', 'は'] },
-    { char: 'に', romaji: 'ni', row: 'n', type: 'hiragana', strokeCount: 3, mnemonic: 'A Needle and some thread.', confusables: ['こ', 'い'] },
-    { char: 'ぬ', romaji: 'nu', row: 'n', type: 'hiragana', strokeCount: 2, mnemonic: 'Noodles twisted up with chopsticks.', confusables: ['め', 'ね'] },
-    { char: 'ね', romaji: 'ne', row: 'n', type: 'hiragana', strokeCount: 2, mnemonic: 'A cat (Neko) with a curly tail catching a fish.', confusables: ['れ', 'わ'] },
-    { char: 'の', romaji: 'no', row: 'n', type: 'hiragana', strokeCount: 1, mnemonic: 'A No entry sign, a circle with a slash through it.', confusables: ['め'] },
+  const YOON_ROWS = [
+    ['きゃ・しゃ・ちゃ', [['きゃ','キャ','kya'],['きゅ','キュ','kyu'],['きょ','キョ','kyo'],['しゃ','シャ','sha'],['しゅ','シュ','shu'],['しょ','ショ','sho'],['ちゃ','チャ','cha'],['ちゅ','チュ','chu'],['ちょ','チョ','cho']]],
+    ['にゃ・ひゃ・みゃ', [['にゃ','ニャ','nya'],['にゅ','ニュ','nyu'],['にょ','ニョ','nyo'],['ひゃ','ヒャ','hya'],['ひゅ','ヒュ','hyu'],['ひょ','ヒョ','hyo'],['みゃ','ミャ','mya'],['みゅ','ミュ','myu'],['みょ','ミョ','myo']]],
+    ['りゃ・ぎゃ・じゃ', [['りゃ','リャ','rya'],['りゅ','リュ','ryu'],['りょ','リョ','ryo'],['ぎゃ','ギャ','gya'],['ぎゅ','ギュ','gyu'],['ぎょ','ギョ','gyo'],['じゃ','ジャ','ja'],['じゅ','ジュ','ju'],['じょ','ジョ','jo']]],
+    ['びゃ・ぴゃ', [['びゃ','ビャ','bya'],['びゅ','ビュ','byu'],['びょ','ビョ','byo'],['ぴゃ','ピャ','pya'],['ぴゅ','ピュ','pyu'],['ぴょ','ピョ','pyo']]]
+  ];
 
-    { char: 'は', romaji: 'ha', row: 'h', type: 'hiragana', strokeCount: 3, mnemonic: 'Looks like the letters H and A next to each other.', confusables: ['ほ', 'ま', 'け'] },
-    { char: 'ひ', romaji: 'hi', row: 'h', type: 'hiragana', strokeCount: 1, mnemonic: 'He has a big smile, showing his teeth. "Hee hee!"', confusables: ['び', 'ぴ'] },
-    { char: 'ふ', romaji: 'fu', row: 'h', type: 'hiragana', strokeCount: 4, mnemonic: 'Mount Fuji with a cloud passing over it.', confusables: ['ぶ', 'ぷ'] },
-    { char: 'へ', romaji: 'he', row: 'h', type: 'hiragana', strokeCount: 1, mnemonic: 'Points up to Heaven.', confusables: ['く'] },
-    { char: 'ほ', romaji: 'ho', row: 'h', type: 'hiragana', strokeCount: 4, mnemonic: 'A House with a roof and a line crossing it. It\'s a hot day.', confusables: ['は', 'ま'] },
+  // 漢字字源：[漢字, 解析]
+  const LORE = {
+    'あ':['安','「安」的草書：上方像十字，下方「女」字連筆繞成大圈'],
+    'い':['以','「以」的左右兩筆簡化：左長彎鉤、右短點'],
+    'う':['宇','「宇」的寶蓋頭草書：上方一點，下方圓弧蓋住'],
+    'え':['衣','「衣」的草書：上方一點，下方一筆折出衣擺'],
+    'お':['於','「於」的左半連筆：一筆打圈後，右上多點一點'],
+    'か':['加','「加」的左半「力」，右邊「口」簡化成一點'],
+    'き':['幾','「幾」的草書：兩橫斜線穿過一豎，下方彎弧'],
+    'く':['久','「久」的第一筆：往左折再往右下的單筆折角'],
+    'け':['計','「計」的草書：左邊言字旁變一豎，右邊是「十」'],
+    'こ':['己','「己」的上下兩橫保留，中間省略'],
+    'さ':['左','「左」的草書：一橫斜穿一豎，比 き 少一橫'],
+    'し':['之','「之」的草書：一豎往下自然往右勾起'],
+    'す':['寸','「寸」的草書：一橫穿過直筆，中間繞一個小圈垂下'],
+    'せ':['世','「世」的草書：拿掉中間一橫，骨架幾乎跟漢字「世」一樣'],
+    'そ':['曽','「曽」的草書：一筆像 Z 字閃電往下繞弧'],
+    'た':['太','「太」的草書：左邊像「十」，右下是兩小橫'],
+    'ち':['知','「知」的左半草書：長得像阿拉伯數字 5'],
+    'つ':['川','「川」連筆草書：三豎連成一道橫向大海浪'],
+    'て':['天','「天」的草書：一橫往內彎出圓弧肚'],
+    'と':['止','「止」的草書：一斜豎撞進一個C形彎弧'],
+    'な':['奈','「奈」的草書：左上十字，右上點一點，右下繞結'],
+    'に':['仁','「仁」的草書：左邊單人旁一豎，右邊「二」字兩橫'],
+    'ぬ':['奴','「奴」的草書：左邊「女」加右邊繞圈再多打一個小結'],
+    'ね':['祢','「祢」的草書：左邊一豎穿過 Z 彎，右下尾巴打個小圈'],
+    'の':['乃','「乃」的一筆草書：由上往下順時針繞一大圈'],
+    'は':['波','「波」的草書：左邊一豎，右邊「皮」簡化成一橫穿直打結'],
+    'ひ':['比','「比」的草書連成一筆：像微笑的口袋'],
+    'ふ':['不','「不」的草書：上方一點、中間彎鉤、左右各一點'],
+    'へ':['部','「部」的右耳旁拉平：像一座小山坡'],
+    'ほ':['保','「保」的草書：跟 は 極像，但右邊上方是「兩橫」'],
+    'ま':['末','「末」的草書：上下兩橫穿一豎，底部打結（沒有左邊直豎）'],
+    'み':['美','「美」的草書：像草寫數字 21 連在一起'],
+    'む':['武','「武」的草書：底部繞圈往上勾，右邊點一點'],
+    'め':['女','「女」的草書：像 ぬ，但尾巴俐落收筆「不打結」'],
+    'も':['毛','「毛」的草書：先寫像 し 的鉤，再補上兩橫（字形超像「毛」）'],
+    'や':['也','「也」的草書：字形骨架就是漢字「也」'],
+    'ゆ':['由','「由」的草書：一筆繞大圈，中間一豎貫穿'],
+    'よ':['与','「与」的草書：上方短橫在右，直筆下來左下打結'],
+    'ら':['良','「良」的草書：上方一點，下方像數字 5 的下半'],
+    'り':['利','「利」的立刀旁（刂）：左短豎帶鉤、右長豎彎下'],
+    'る':['留','「留」的草書：像數字 3，尾巴向內「打一個小圈」'],
+    'れ':['礼','「礼」的草書：左邊一豎穿折，右下尾巴「往外翹起」'],
+    'ろ':['呂','「呂」的草書：跟 る 一樣像數字 3，但尾巴「不打圈」'],
+    'わ':['和','「和」的草書：左邊一豎穿折，右邊圓弧「向內柔和收回」'],
+    'を':['遠','「遠」的草書：現代只作受格助詞，發音同 お (o)'],
+    'ん':['无','「无」的草書：一筆寫成，長得就像英文草寫 n'],
 
-    { char: 'ま', romaji: 'ma', row: 'm', type: 'hiragana', strokeCount: 3, mnemonic: 'A Mast on a sailboat with two sails.', confusables: ['ほ', 'は'] },
-    { char: 'み', romaji: 'mi', row: 'm', type: 'hiragana', strokeCount: 2, mnemonic: 'Who is 21? Me!', confusables: ['む'] },
-    { char: 'む', romaji: 'mu', row: 'm', type: 'hiragana', strokeCount: 3, mnemonic: 'A cow (Moo) with a tail and a spot.', confusables: ['す', 'お'] },
-    { char: 'め', romaji: 'me', row: 'm', type: 'hiragana', strokeCount: 2, mnemonic: 'An eye (Me in Japanese). It looks like a beautiful eye.', confusables: ['ぬ', 'あ'] },
-    { char: 'も', romaji: 'mo', row: 'm', type: 'hiragana', strokeCount: 3, mnemonic: 'A Monitor lizard catching bugs with its tongue.', confusables: ['し'] },
+    'ア':['阿','取「阿」左邊的阜字旁上半'],
+    'イ':['伊','取「伊」左邊的單人旁「亻」'],
+    'ウ':['宇','取「宇」上方的寶蓋頭「宀」'],
+    'エ':['江','取「江」右邊的「工」字，完全一樣'],
+    'オ':['於','取「於」左邊的「方」字變形（像「才」字）'],
+    'カ':['加','取「加」左邊的「力」字，完全一樣'],
+    'キ':['幾','取「幾」的兩橫加一斜豎（平假名 き 去掉下弧）'],
+    'ク':['久','取「久」的起筆撇折'],
+    'ケ':['介','取「介」的變形，像竹葉斜開'],
+    'コ':['己','取「己」的上半方框，開口朝左'],
+    'サ':['散','取「散」的草頭上半：一橫穿過左短右長兩豎'],
+    'シ':['之','「之」的點畫化：左邊上下兩橫點，最後一筆「由左下往右上挑」'],
+    'ス':['須','取「須」右下部分：橫撇加右下支撐點'],
+    'セ':['世','取「世」的簡化骨架，與平假名 せ 極像但有稜角'],
+    'ソ':['曽','取「曽」上方的八字點：左上短豎點，右筆「由右上往左下撇」'],
+    'タ':['多','取「多」的上半「夕」字，完全一樣'],
+    'チ':['千','取「千」字，最後一豎往左彎'],
+    'ツ':['川','取「川」的三筆：上方左右排兩短豎點，右筆「由右上往左下撇」'],
+    'テ':['天','取「天」的兩橫加一彎撇'],
+    'ト':['止','取「止」的直豎加右邊短斜點（像卜卦的「卜」）'],
+    'ナ':['奈','取「奈」上方「大」的前兩筆十字撇'],
+    'ニ':['二','就是漢字「二」！日文數字 2 也讀作 ni'],
+    'ヌ':['奴','取「奴」右邊的「又」字變形'],
+    'ネ':['祢','取「祢」左邊的示字旁「礻」'],
+    'ノ':['乃','取「乃」的第一撇'],
+    'ハ':['八','就是漢字「八」分開寫'],
+    'ヒ':['比','取「比」的右半「匕」字'],
+    'フ':['不','取「不」的一折撇'],
+    'ヘ':['部','與平假名 へ 完全同源同形'],
+    'ホ':['保','取「保」右下方的「木」字'],
+    'マ':['万','取「万」的上半折點'],
+    'ミ':['三','就是斜寫的「三」條線'],
+    'ム':['牟','取「牟」上方的「厶」字，完全一樣'],
+    'メ':['女','取「女」下方交叉的兩筆'],
+    'モ':['毛','「毛」拿掉第一撇，與平假名 も 骨架一致'],
+    'ヤ':['也','「也」去掉最後一豎彎，與平假名 や 少一點'],
+    'ユ':['由','取「由」簡化，像數字 1 轉折加底橫'],
+    'ヨ':['与','取「与」的一部分，像英文字母 E 左右反轉'],
+    'ラ':['良','取「良」的上橫與下折'],
+    'リ':['利','取「利」的立刀旁「刂」，與平假名 り 幾乎相同'],
+    'ル':['流','取「流」右下方的「儿」字兩腳'],
+    'レ':['礼','取「礼」右半的一豎往右上勾起（像打勾 ✓）'],
+    'ロ':['呂','取「呂」上方的「口」字，完全一樣'],
+    'ワ':['和','取「和」右邊「口」字變形：頂部平橫往下撇'],
+    'ヲ':['乎','取「乎」的簡化：兩橫加一撇，現代極少用'],
+    'ン':['爾','一點在左上，長筆「由左下往右上挑起」']
+  };
 
-    { char: 'や', romaji: 'ya', row: 'y', type: 'hiragana', strokeCount: 3, mnemonic: 'A Yak looking at you. You can see its horns.', confusables: ['か'] },
-    { char: 'ゆ', romaji: 'yu', row: 'y', type: 'hiragana', strokeCount: 2, mnemonic: 'A U-turn sign on the road.', confusables: ['め'] },
-    { char: 'よ', romaji: 'yo', row: 'y', type: 'hiragana', strokeCount: 2, mnemonic: 'Playing with a Yo-yo spinning down.', confusables: ['ま'] },
+  // 圖像諧音口訣：[emoji, 口訣]
+  const MNEMO = {
+    'あ':['😮','張大嘴喊「啊 (a)」，像「安」字草書'],
+    'い':['👕','「衣 / 以 (i)」的兩條直線並排站'],
+    'う':['🏠','寶蓋頭像「屋 (u)」頂遮風避雨'],
+    'え':['🏃','一點加折線，像人奔跑喊「欸 (e)」'],
+    'お':['⛳','高爾夫球進洞「喔 (o)！」右上有一顆球點'],
+    'か':['💪','出力「加 (ka)」油，右邊一點像汗水'],
+    'き':['🔑','長得就像一把鑰匙 Key → ki'],
+    'く':['🐦','小鳥張嘴「咕咕 (ku)」叫的鳥喙'],
+    'け':['🚪','兩扇門「開 (ke)」了一條縫'],
+    'こ':['👄','上下兩條線像張開的「口 (ko)」'],
+    'さ':['🗡️','只有「一橫」穿過，像武士拔刀颯颯 (sa)'],
+    'し':['🪝','像吸管或魚鉤，吸 (shi) 水上來'],
+    'す':['🍥','中間捲起一個魚板漩渦，吸壽司 (sushi → su)'],
+    'せ':['🌍','就是漢字「世」少一筆，せかい (sekai 世界)'],
+    'そ':['⚡','Z 字閃電咻一下穿「梭 (so)」而過'],
+    'た':['➕','左邊「十」右邊「こ」，組合成「太 (ta)」'],
+    'ち':['5️⃣','長得像數字 5，五塊起司「吃 (chi)」下去'],
+    'つ':['🌊','一道大津波海浪 (tsunami → tsu) 捲過來'],
+    'て':['✋','像手掌心弧線，日文「手」就讀作 te'],
+    'と':['📌','一根小刺扎進腳趾頭 (toe → to)'],
+    'な':['🪢','十字下面打個繩結，「拿 (na)」穩別掉'],
+    'に':['仁','左一豎右「二」，日文數字 2 就讀 ni'],
+    'ぬ':['🍜','像一團打結的拉麵 (noodle → nu)'],
+    'ね':['🐱','尾巴捲一圈的貓咪 ねこ (neko → ne)'],
+    'の':['🚫','一筆畫圓圈，就像禁止符號 NO → no'],
+    'は':['😄','「波」字草書，張嘴「哈哈 (ha)」笑'],
+    'ひ':['😊','彎彎的笑臉「嘻嘻 (hi)」笑'],
+    'ふ':['🗻','輪廓就像富士山 (Fuji → fu)'],
+    'へ':['⛰️','一筆小山坡，爬山好累「嘿 (he)」'],
+    'ほ':['🏠','比 は 多一橫當屋頂，待在家裡好暖「和 (ho)」'],
+    'ま':['👩‍👧','雙手張開的「媽 (ma)」媽（左邊沒有直豎）'],
+    'み':['🎵','像高音譜號 Mi → mi（也像數字 21）'],
+    'む':['🐮','乳牛叫 Moo (mu)，右上有一點像牛鈴'],
+    'め':['👁️','日文眼睛叫「目 (me)」，像女字沒有尾巴結'],
+    'も':['🧶','就是「毛 (mo)」字！先寫鉤再畫兩橫'],
+    'や':['⚓','就是漢字「也 (ya)」的圓潤版'],
+    'ゆ':['♨️','溫泉湯屋布簾最常看到的字（湯 = ゆ yu）'],
+    'よ':['🪀','溜溜球 Yo-yo (yo) 垂下來繞一圈'],
+    'ら':['🐰','上面耳朵下面圓肚，像小兔子啦啦跳 (ra)'],
+    'り':['🔪','「利 (ri)」的立刀旁，左右兩筆順順寫'],
+    'る':['➰','尾巴「有打圈 (loop)」→ る (ru)'],
+    'れ':['💃','尾巴「往外甩出去」敬禮（礼 → re）'],
+    'ろ':['3️⃣','像數字 3 尾巴「不打圈」，平順馬「路 (ro)」'],
+    'わ':['⭕','右邊圓圓大大張嘴「哇 (wa)！」'],
+    'を':['🔗','連接受詞的專屬助詞，讀音同 o'],
+    'ん':['🔤','長得就像英文字母 n → 鼻音 n'],
 
-    { char: 'ら', romaji: 'ra', row: 'r', type: 'hiragana', strokeCount: 2, mnemonic: 'A Rabbit hopping on its hind legs.', confusables: ['ち', 'う'] },
-    { char: 'り', romaji: 'ri', row: 'r', type: 'hiragana', strokeCount: 2, mnemonic: 'Reeds swaying in a river.', confusables: ['い'] },
-    { char: 'る', romaji: 'ru', row: 'r', type: 'hiragana', strokeCount: 1, mnemonic: 'A Route on a map with a loop at the end.', confusables: ['ろ', 'そ'] },
-    { char: 'れ', romaji: 're', row: 'r', type: 'hiragana', strokeCount: 2, mnemonic: 'A guy Resting against a wall.', confusables: ['わ', 'ね'] },
-    { char: 'ろ', romaji: 'ro', row: 'r', type: 'hiragana', strokeCount: 1, mnemonic: 'A Road without a loop at the end.', confusables: ['る', 'そ'] },
+    'ア':['📐','「阿」的左耳旁上半 → a'],
+    'イ':['🧍','「伊」的單人旁「亻」→ i'],
+    'ウ':['🏠','「宇」的寶蓋頭 → u'],
+    'エ':['🛠️','就是漢字「工」，工程師 Engineer → e'],
+    'オ':['🌟','像「才」字，天才喔 (o)！'],
+    'カ':['💪','就是漢字「力」，卡路里 (ka)！'],
+    'キ':['🔑','平假名 き 的直線版，一樣是鑰匙 ki'],
+    'ク':['👨‍🍳','像廚師帽一角 Cook → ku（沒有上橫、沒有中間點）'],
+    'ケ':['🎋','像竹葉「介」字變形，蛋糕 ケーキ (ke)'],
+    'コ':['📦','方框轉角 Corner → ko（上下兩橫封右邊）'],
+    'サ':['🥗','像草字頭，吃沙拉 サラダ (sa)'],
+    'シ':['😊','左邊兩平點排成直列，微笑「由下往上挑」→ shi（像三點水氵）'],
+    'ス':['🏃','像人邁開雙腿滑冰 Skate → su'],
+    'セ':['🧥','「世」字精簡版 → se'],
+    'ソ':['🪡','上方一短豎點，長筆「由右上往左下撇」→ so'],
+    'タ':['🌆','就是漢字「夕」，夕陽下搭計程車 タクシー (ta)'],
+    'チ':['🌾','就是漢字「千」尾巴左彎 → chi'],
+    'ツ':['🌧️','上方「兩短豎平排」，長筆「由右上往左下撇」→ tsu'],
+    'テ':['📡','兩橫加彎柱，像電視天線 テレビ (te)'],
+    'ト':['🥕','像「卜」字，番茄 トマト (to)'],
+    'ナ':['➕','十字往左撇，刀子 ナイフ (na)'],
+    'ニ':['2️⃣','就是漢字「二」，日文二讀作 ni！'],
+    'ヌ':['🥢','像「又」字夾麵條 ヌードル (nu)'],
+    'ネ':['👔','就是示字旁「礻」，像打領帶 ネクタイ (ne)'],
+    'ノ':['╱','乾淨俐落一撇 → no'],
+    'ハ':['8️⃣','就是漢字「八」，哈哈 (ha) 笑'],
+    'ヒ':['🥄','就是「匕」首 / 湯匙 → hi'],
+    'フ':['💨','一筆折撇，呼 (fu) 一口氣'],
+    'ヘ':['⛰️','跟平假名 へ 一模一樣 → he'],
+    'ホ':['🌲','就是「木」字分開寫，飯店 ホテル (ho)'],
+    'マ':['😷','橫折加一點，口罩 マスク (ma)'],
+    'ミ':['3️⃣','三條斜線，日文「三」也讀 mi（牛奶 ミルク）'],
+    'ム':['🔺','就是「厶」，三角形積木 → mu'],
+    'メ':['⚔️','交叉一撇一點，菜單 メニュー (me)'],
+    'モ':['🍑','「毛」少上面一撇 → mo'],
+    'ヤ':['⚡','平假名 や 拿掉右上點 → ya'],
+    'ユ':['🛥️','像潛水艇呼吸管 U-boat → yu'],
+    'ヨ':['🔄','英文字母 E 反過來寫 → yo（瑜珈 ヨガ）'],
+    'ラ':['🍜','一橫加 フ，拉麵 ラーメン (ra)！'],
+    'リ':['🔪','立刀旁，跟平假名 り 幾乎一樣 → ri'],
+    'ル':['👣','像「儿」兩隻腳走路，規則 ルール (ru)'],
+    'レ':['✔️','一筆打勾勾 ✓，檸檬 レモン (re)'],
+    'ロ':['⬜','就是漢字「口」，機器人 ロボット (ro)'],
+    'ワ':['🍷','頂部平橫像酒杯口，紅酒 ワイン (wa)'],
+    'ヲ':['〰️','兩橫加撇，片假名助詞 wo'],
+    'ン':['😉','左上「一點」，長筆「由左下往右上挑」→ n']
+  };
 
-    { char: 'わ', romaji: 'wa', row: 'w', type: 'hiragana', strokeCount: 2, mnemonic: 'A Wasp with a big rounded stinger.', confusables: ['れ', 'ね'] },
-    { char: 'を', romaji: 'wo', row: 'w', type: 'hiragana', strokeCount: 3, mnemonic: 'A man going "Whoa!" as he rides a unicycle.', confusables: ['ち'] },
-    { char: 'ん', romaji: 'n', row: 'w', type: 'hiragana', strokeCount: 1, mnemonic: 'Looks like a lowercase N stretching out at the end.', confusables: ['え'] }
-  ],
-  KATAKANA: [
-    { char: 'ア', romaji: 'a', row: 'vowel', type: 'katakana', strokeCount: 2, mnemonic: 'An Axe chopping down.', confusables: ['マ', 'ヤ'] },
-    { char: 'イ', romaji: 'i', row: 'vowel', type: 'katakana', strokeCount: 2, mnemonic: 'An Eagle standing on the ground.', confusables: ['ト', 'ナ'] },
-    { char: 'ウ', romaji: 'u', row: 'vowel', type: 'katakana', strokeCount: 3, mnemonic: 'It looks like the top part of the hiragana う (u).', confusables: ['ワ', 'フ'] },
-    { char: 'エ', romaji: 'e', row: 'vowel', type: 'katakana', strokeCount: 3, mnemonic: 'The girders of an Elevator shaft.', confusables: ['コ'] },
-    { char: 'オ', romaji: 'o', row: 'vowel', type: 'katakana', strokeCount: 3, mnemonic: 'An Opera singer with his mouth wide open.', confusables: ['ホ', '木'] },
+  // 熟悉日語單字錨點（串聯多鄰國聽力記憶！）
+  const WORDS = {
+    'あ':['あめ','ame','雨','🌧️'],        'い':['いぬ','inu','狗','🐕'],
+    'う':['うみ','umi','海','🌊'],         'え':['えき','eki','車站','🚉'],
+    'お':['おちゃ','ocha','茶','🍵'],      'か':['かさ','kasa','傘','☂️'],
+    'き':['きっぷ','kippu','車票','🎫'],   'く':['くつ','kutsu','鞋子','👟'],
+    'け':['けいたい','keitai','手機','📱'],'こ':['こども','kodomo','小孩','🧒'],
+    'さ':['さくら','sakura','櫻花','🌸'],  'し':['しろ','shiro','白色','🤍'],
+    'す':['すし','sushi','壽司','🍣'],      'せ':['せんせい','sensei','老師','👩‍🏫'],
+    'そ':['そら','sora','天空','☁️'],       'た':['たまご','tamago','雞蛋','🥚'],
+    'ち':['ちかてつ','chikatetsu','地鐵','🚇'],'つ':['つき','tsuki','月亮','🌙'],
+    'て':['てがみ','tegami','信','✉️'],     'と':['とり','tori','鳥','🐦'],
+    'な':['なつ','natsu','夏天','🌻'],      'に':['にく','niku','肉','🍖'],
+    'ぬ':['いぬ','inu','狗（ぬ在字尾）','🐕'],'ね':['ねこ','neko','貓','🐱'],
+    'の':['のみもの','nomimono','飲料','🥤'],'は':['はな','hana','花','🌷'],
+    'ひ':['ひと','hito','人','🧍'],         'ふ':['ふゆ','fuyu','冬天','⛄'],
+    'へ':['へや','heya','房間','🚪'],       'ほ':['ほし','hoshi','星星','⭐'],
+    'ま':['まど','mado','窗戶','🪟'],       'み':['みず','mizu','水','💧'],
+    'む':['むし','mushi','蟲','🐛'],        'め':['めがね','megane','眼鏡','👓'],
+    'も':['もも','momo','水蜜桃','🍑'],     'や':['やま','yama','山','⛰️'],
+    'ゆ':['ゆき','yuki','雪','❄️'],         'よ':['よる','yoru','夜晚','🌃'],
+    'ら':['らいねん','rainen','明年','📅'], 'り':['りんご','ringo','蘋果','🍎'],
+    'る':['ひる','hiru','中午','☀️'],       'れ':['れいぞうこ','reizōko','冰箱','🧊'],
+    'ろ':['ろく','roku','六','6️⃣'],        'わ':['わたし','watashi','我','🙋'],
+    'を':['みずをのむ','mizu o nomu','喝水（受格助詞）','💧'],
+    'ん':['にほん','nihon','日本','🇯🇵'],
 
-    { char: 'カ', romaji: 'ka', row: 'k', type: 'katakana', strokeCount: 2, mnemonic: 'Almost exactly like the hiragana か, minus the extra stroke.', confusables: ['力'] },
-    { char: 'キ', romaji: 'ki', row: 'k', type: 'katakana', strokeCount: 3, mnemonic: 'Looks like a Key.', confusables: ['チ'] },
-    { char: 'ク', romaji: 'ku', row: 'k', type: 'katakana', strokeCount: 2, mnemonic: 'A Cook\'s hat.', confusables: ['ワ', 'タ', 'ケ'] },
-    { char: 'ケ', romaji: 'ke', row: 'k', type: 'katakana', strokeCount: 3, mnemonic: 'The shape of a Kettle.', confusables: ['ク'] },
-    { char: 'コ', romaji: 'ko', row: 'k', type: 'katakana', strokeCount: 2, mnemonic: 'Two corners of a box. Box starts with... well, box, but it is a Corner.', confusables: ['ユ'] },
+    'ア':['アイス','aisu','冰淇淋','🍦'],       'イ':['トイレ','toire','廁所','🚻'],
+    'ウ':['ウール','ūru','羊毛','🧶'],          'エ':['エアコン','eakon','冷氣','❄️'],
+    'オ':['オレンジ','orenji','柳橙','🍊'],     'カ':['カメラ','kamera','相機','📷'],
+    'キ':['ケーキ','kēki','蛋糕','🍰'],         'ク':['クラス','kurasu','班級','🏫'],
+    'ケ':['ケーキ','kēki','蛋糕','🍰'],         'コ':['コーヒー','kōhī','咖啡','☕'],
+    'サ':['サラダ','sarada','沙拉','🥗'],       'シ':['シャツ','shatsu','襯衫','👕'],
+    'ス':['スマホ','sumaho','智慧手機','📱'],   'セ':['セーター','sētā','毛衣','🧥'],
+    'ソ':['ソファ','sofa','沙發','🛋️'],         'タ':['タクシー','takushī','計程車','🚕'],
+    'チ':['チーズ','chīzu','起司','🧀'],        'ツ':['ツアー','tsuā','旅遊團','🧳'],
+    'テ':['テレビ','terebi','電視','📺'],       'ト':['トイレ','toire','廁所','🚻'],
+    'ナ':['ナイフ','naifu','刀子','🔪'],        'ニ':['ニュース','nyūsu','新聞','📰'],
+    'ヌ':['ヌードル','nūdoru','麵條','🍜'],     'ネ':['ネクタイ','nekutai','領帶','👔'],
+    'ノ':['ノート','nōto','筆記本','📓'],       'ハ':['バス','basu','公車（ハ加兩點）','🚌'],
+    'ヒ':['ヒーロー','hīrō','英雄','🦸'],       'フ':['フォーク','fōku','叉子','🍴'],
+    'ヘ':['ヘルメット','herumetto','安全帽','⛑️'],'ホ':['ホテル','hoteru','飯店','🏨'],
+    'マ':['マスク','masuku','口罩','😷'],       'ミ':['ミルク','miruku','牛奶','🥛'],
+    'ム':['ゲーム','gēmu','遊戲','🎮'],         'メ':['メニュー','menyū','菜單','📋'],
+    'モ':['メモ','memo','備忘錄','📝'],         'ヤ':['タイヤ','taiya','輪胎','🛞'],
+    'ユ':['ユニーク','yunīku','獨特','✨'],     'ヨ':['ヨガ','yoga','瑜珈','🧘'],
+    'ラ':['ラーメン','rāmen','拉麵','🍜'],      'リ':['リモコン','rimokon','遙控器','🎛️'],
+    'ル':['ホテル','hoteru','飯店','🏨'],       'レ':['レストラン','resutoran','餐廳','🍽️'],
+    'ロ':['ロボット','robotto','機器人','🤖'],  'ワ':['ワイン','wain','紅酒','🍷'],
+    'ヲ':['ヲタク','wotaku','御宅族','👓'],     'ン':['パン','pan','麵包','🍞']
+  };
 
-    { char: 'サ', romaji: 'sa', row: 's', type: 'katakana', strokeCount: 3, mnemonic: 'Three Sardines swimming together.', confusables: ['ザ'] },
-    { char: 'シ', romaji: 'shi', row: 's', type: 'katakana', strokeCount: 3, mnemonic: 'She has a very weird face. Looking up from the bottom.', confusables: ['ツ', 'ン'] },
-    { char: 'ス', romaji: 'su', row: 's', type: 'katakana', strokeCount: 2, mnemonic: 'Superman flying to the right.', confusables: ['ヌ'] },
-    { char: 'セ', romaji: 'se', row: 's', type: 'katakana', strokeCount: 2, mnemonic: 'Looks like the hiragana せ (se) but sharper.', confusables: ['ヤ', 'ゼ'] },
-    { char: 'ソ', romaji: 'so', row: 's', type: 'katakana', strokeCount: 2, mnemonic: 'Sewing with a single needle pointing down.', confusables: ['ン', 'シ'] },
+  // 濁音與拗音例詞補充
+  const EXTRA_WORDS = {
+    'が':['がっこう','gakkō','學校','🏫'], 'ぎ':['ぎんこう','ginkō','銀行','🏦'], 'ぐ':['ぐんて','gunte','手套','🧤'], 'げ':['げんき','genki','精神好','💪'], 'ご':['ごはん','gohan','白飯','🍚'],
+    'ざ':['ざっし','zasshi','雜誌','📖'], 'じ':['じかん','jikan','時間','⏰'], 'ず':['ちず','chizu','地圖','🗺️'], 'ぜ':['ぜんぶ','zenbu','全部','💯'], 'ぞ':['ぞう','zō','大象','🐘'],
+    'だ':['だいがく','daigaku','大學','🎓'], 'ぢ':['はなぢ','hanaji','鼻血','🩸'], 'づ':['つづく','tsuzuku','繼續','➡️'], 'で':['でんしゃ','densha','電車','🚆'], 'ど':['どようび','doyōbi','星期六','📅'],
+    'ば':['かばん','kaban','包包','👜'], 'び':['びょういん','byōin','醫院','🏥'], 'ぶ':['ぶたにく','butaniku','豬肉','🐷'], 'べ':['べんとう','bentō','便當','🍱'], 'ぼ':['ぼうし','bōshi','帽子','🧢'],
+    'ぱ':['さんぽ','sanpo','散步','🚶'], 'ぴ':['えんぴつ','enpitsu','鉛筆','✏️'], 'ぷ':['てんぷら','tenpura','天婦羅','🍤'], 'ぺ':['ぺこぺこ','pekopeko','肚子餓','😋'], 'ぽ':['きっぽう','kippō','好消息','💌'],
+    'ガ':['ガラス','garasu','玻璃','🪟'], 'ギ':['ギター','gitā','吉他','🎸'], 'グ':['グラス','gurasu','玻璃杯','🥛'], 'ゲ':['ゲーム','gēmu','遊戲','🎮'], 'ゴ':['ゴミ','gomi','垃圾','🗑️'],
+    'ザ':['ピザ','piza','披薩','🍕'], 'ジ':['ジュース','jūsu','果汁','🧃'], 'ズ':['チーズ','chīzu','起司','🧀'], 'ゼ':['ゼロ','zero','零','0️⃣'], 'ゾ':['ゾーン','zōn','區域','📍'],
+    'ダ':['ダンス','dansu','跳舞','💃'], 'ヂ':['ヂーゼル','jīzeru','柴油','⛽'], 'ヅ':['ヅラ','zura','假髮','💇'], 'デ':['デパート','depāto','百貨公司','🏬'], 'ド':['ドア','doa','門','🚪'],
+    'バ':['バス','basu','公車','🚌'], 'ビ':['ビール','bīru','啤酒','🍺'], 'ブ':['ブログ','burogu','部落格','💻'], 'ベ':['ベッド','beddo','床','🛏️'], 'ボ':['ボタン','botan','按鈕','🔘'],
+    'パ':['パン','pan','麵包','🍞'], 'ピ':['ピアノ','piano','鋼琴','🎹'], 'プ':['プール','pūru','游泳池','🏊'], 'ペ':['ペン','pen','筆','🖊️'], 'ポ':['ポケット','poketto','口袋','👖'],
+    'きゃ':['きゃく','kyaku','客人','🙋'], 'しゃ':['しゃしん','shashin','照片','📸'], 'ちゃ':['おちゃ','ocha','茶','🍵'],
+    'にゃ':['にゃんこ','nyanko','貓咪','🐱'], 'ひゃ':['ひゃく','hyaku','一百','💯'], 'みゃ':['みゃく','myaku','脈搏','💓'],
+    'りゃ':['りゃく','ryaku','簡稱','✂️'], 'ぎゃ':['ぎゃく','gyaku','相反','🔄'], 'じゃ':['じゃあね','jāne','掰掰','👋'],
+    'びゃ':['さんびゃく','sanbyaku','三百','🔢'], 'ぴゃ':['ろっぴゃく','roppyaku','六百','🔢'],
+    'キャ':['キャンプ','kyanpu','露營','⛺'], 'シャ':['シャツ','shatsu','襯衫','👕'], 'チャ':['チャンス','chansu','機會','🎯'],
+    'ニュ':['ニュース','nyūsu','新聞','📰'], 'シュ':['シューズ','shūzu','運動鞋','👟'], 'チョ':['チョコ','choko','巧克力','🍫'],
+    'ジャ':['ジャケット','jaketto','外套','🧥'], 'ジュ':['ジュース','jūsu','果汁','🧃'], 'ジョ':['ジョギング','jogingu','慢跑','🏃']
+  };
 
-    { char: 'タ', romaji: 'ta', row: 't', type: 'katakana', strokeCount: 3, mnemonic: 'A Tidal wave.', confusables: ['ク'] },
-    { char: 'チ', romaji: 'chi', row: 't', type: 'katakana', strokeCount: 3, mnemonic: 'A Cheerleader doing a split.', confusables: ['テ'] },
-    { char: 'ツ', romaji: 'tsu', row: 't', type: 'katakana', strokeCount: 3, mnemonic: 'Two needles pointing down. Falling rain.', confusables: ['シ', 'ソ'] },
-    { char: 'テ', romaji: 'te', row: 't', type: 'katakana', strokeCount: 3, mnemonic: 'A Telephone pole.', confusables: ['チ'] },
-    { char: 'ト', romaji: 'to', row: 't', type: 'katakana', strokeCount: 2, mnemonic: 'A Totem pole.', confusables: ['イ'] },
+  // 易混淆群組與秒殺分辨口訣
+  const CONFUSE_GROUPS = [
+    { chars: ['あ','お'], tip: '「あ (a)」下方交叉像女字；「お (o)」一筆連繞且右上多一顆球點！' },
+    { chars: ['き','さ','ち'], tip: '「き (ki)」兩橫開口朝左；「さ (sa)」一橫開口朝左；「ち (chi)」開口朝右像數字 5！' },
+    { chars: ['は','ほ','ま'], tip: '「は (ha)」左有豎＋右一橫；「ほ (ho)」左有豎＋右兩橫；「ま (ma)」左邊完全沒有直豎！' },
+    { chars: ['る','ろ'], tip: '「る (ru)」尾巴有打一個小圈；「ろ (ro)」像數字 3 尾巴不打圈！' },
+    { chars: ['れ','わ','ね'], tip: '左邊都一樣！看右邊尾巴：「ね (ne)」打圈像貓尾、「れ (re)」往外翹、「わ (wa)」圓弧往內收！' },
+    { chars: ['ぬ','め'], tip: '左邊都像女字！「ぬ (nu)」像麵條尾巴多打一個結；「め (me)」俐落收筆不打結！' },
+    { chars: ['い','り','こ','に'], tip: '「い (i)」左長右短；「り (ri)」右長左短；「こ (ko)」上下兩橫；「に (ni)」左一豎右兩橫！' },
+    { chars: ['う','つ','ら'], tip: '「う (u)」上面有一點；「つ (tsu)」沒有點像海浪；「ら (ra)」上面一點但下方先豎再彎！' },
+    { chars: ['す','む'], tip: '「す (su)」圈在中間往下垂；「む (mu)」圈在底部往右勾且右上多一點！' },
+    { chars: ['シ','ツ','ソ','ン'], tip: '片假名大魔王！看點的方向與運筆：シ(shi)/ン(n) 點偏橫、長筆「由左下往右上挑」（像三點水）；ツ(tsu)/ソ(so) 點偏直、長筆「由右上往左下撇」！' },
+    { chars: ['ク','ワ','タ','ケ'], tip: '「ク (ku)」斜撇起筆；「タ (ta)」是 ク 中間多一點（夕）；「ワ (wa)」頂部是水平橫線；「ケ (ke)」橫線穿出左撇！' },
+    { chars: ['ア','マ','ム'], tip: '「ア (a)」下筆往左下撇；「マ (ma)」下筆是短點；「ム (mu)」底部封起來成三角形（厶）！' },
+    { chars: ['コ','ユ','ヨ'], tip: '「コ (ko)」兩橫上下框；「ユ (yu)」底橫特別長突出右邊；「ヨ (yo)」有三橫像反寫 E！' },
+    { chars: ['チ','テ','ナ'], tip: '「チ (chi)」第一筆是斜撇（千）；「テ (te)」上面是兩條平行橫線；「ナ (na)」只有一橫一豎撇！' },
+    { chars: ['ル','レ'], tip: '「ル (ru)」有左右兩筆像「儿」；「レ (re)」只有右邊單筆打勾 ✓！' }
+  ];
 
-    { char: 'ナ', romaji: 'na', row: 'n', type: 'katakana', strokeCount: 2, mnemonic: 'A Nutcracker crossing its arms.', confusables: ['メ'] },
-    { char: 'ニ', romaji: 'ni', row: 'n', type: 'katakana', strokeCount: 2, mnemonic: 'Two needles. "Ni" is two in Japanese.', confusables: ['二'] },
-    { char: 'ヌ', romaji: 'nu', row: 'n', type: 'katakana', strokeCount: 2, mnemonic: 'A New pair of chopsticks picking up food.', confusables: ['ス'] },
-    { char: 'ネ', romaji: 'ne', row: 'n', type: 'katakana', strokeCount: 4, mnemonic: 'A Nest in a tree.', confusables: ['ホ', 'ヘ'] },
-    { char: 'ノ', romaji: 'no', row: 'n', type: 'katakana', strokeCount: 1, mnemonic: 'A long Nose.', confusables: ['ソ'] },
+  const CONFUSE_MAP = {};
+  const CONTRAST_TIP_MAP = {};
+  CONFUSE_GROUPS.forEach(grp => {
+    grp.chars.forEach(k => {
+      if (!CONFUSE_MAP[k]) CONFUSE_MAP[k] = new Set();
+      grp.chars.forEach(o => { if (o !== k) CONFUSE_MAP[k].add(o); });
+      if (!CONTRAST_TIP_MAP[k]) CONTRAST_TIP_MAP[k] = grp.tip;
+    });
+  });
 
-    { char: 'ハ', romaji: 'ha', row: 'h', type: 'katakana', strokeCount: 2, mnemonic: 'A Hat shape like a teepee.', confusables: ['八'] },
-    { char: 'ヒ', romaji: 'hi', row: 'h', type: 'katakana', strokeCount: 2, mnemonic: 'He is sitting on the floor.', confusables: ['ミ'] },
-    { char: 'フ', romaji: 'fu', row: 'h', type: 'katakana', strokeCount: 1, mnemonic: 'A big nose on a Fool.', confusables: ['ウ', 'ワ'] },
-    { char: 'ヘ', romaji: 'he', row: 'h', type: 'katakana', strokeCount: 1, mnemonic: 'Exactly like the hiragana へ.', confusables: ['ネ', 'ホ'] },
-    { char: 'ホ', romaji: 'ho', row: 'h', type: 'katakana', strokeCount: 4, mnemonic: 'A Holy cross.', confusables: ['ネ', 'オ', 'ヘ'] },
+  const ROWS = { base: BASE_ROWS, daku: DAKU_ROWS, yoon: YOON_ROWS };
+  const ITEMS = [];
+  const BY_ID = {};
+  const BY_KANA = {};
 
-    { char: 'マ', romaji: 'ma', row: 'm', type: 'katakana', strokeCount: 2, mnemonic: 'A Mast on a boat.', confusables: ['ア', 'ム'] },
-    { char: 'ミ', romaji: 'mi', row: 'm', type: 'katakana', strokeCount: 3, mnemonic: 'Three Missiles flying in a row.', confusables: ['ヒ', '三'] },
-    { char: 'ム', romaji: 'mu', row: 'm', type: 'katakana', strokeCount: 2, mnemonic: 'A Moose antler.', confusables: ['マ'] },
-    { char: 'メ', romaji: 'me', row: 'm', type: 'katakana', strokeCount: 2, mnemonic: 'An X-mark. X marks the spot for a Melon.', confusables: ['ナ', 'ノ'] },
-    { char: 'モ', romaji: 'mo', row: 'm', type: 'katakana', strokeCount: 3, mnemonic: 'Looks similar to the hiragana も.', confusables: ['テ'] },
+  ['base', 'daku', 'yoon'].forEach(set => {
+    ROWS[set].forEach((row, ri) => {
+      row[1].forEach((cell, ci) => {
+        if (!cell) return;
+        const [hira, kata, romaji, hs, ks] = cell;
+        ['h', 'k'].forEach(script => {
+          const kana = script === 'h' ? hira : kata;
+          const pair = script === 'h' ? kata : hira;
+          const w = WORDS[kana] || EXTRA_WORDS[kana] || null;
+          const item = {
+            id: script + ':' + kana,
+            kana,
+            pair,
+            romaji,
+            script, // 'h' or 'k'
+            set,    // 'base', 'daku', 'yoon'
+            rowIdx: ri,
+            colIdx: ci,
+            rowLabel: row[0],
+            strokes: (script === 'h' ? hs : ks) || null,
+            lore: LORE[kana] || null,
+            mnemo: MNEMO[kana] || null,
+            word: w,
+            confusables: CONFUSE_MAP[kana] ? Array.from(CONFUSE_MAP[kana]) : [],
+            contrastTip: CONTRAST_TIP_MAP[kana] || null
+          };
+          ITEMS.push(item);
+          BY_ID[item.id] = item;
+          BY_KANA[kana] = item;
+        });
+      });
+    });
+  });
 
-    { char: 'ヤ', romaji: 'ya', row: 'y', type: 'katakana', strokeCount: 2, mnemonic: 'A Yak without one of its horns.', confusables: ['セ', 'ア'] },
-    { char: 'ユ', romaji: 'yu', row: 'y', type: 'katakana', strokeCount: 2, mnemonic: 'You are number one.', confusables: ['コ'] },
-    { char: 'ヨ', romaji: 'yo', row: 'y', type: 'katakana', strokeCount: 3, mnemonic: 'A Yo-yo sliding down a string.', confusables: ['コ'] },
+  // 建構 40 堂「3分鐘科學微課程」
+  const CHAPTERS = [];
+  function buildChapters() {
+    const makeRowLesson = (id, script, set, rowIdx, tip) => {
+      const row = ROWS[set][rowIdx];
+      const chars = row[1].filter(Boolean).map(c => BY_KANA[script === 'h' ? c[0] : c[1]]);
+      return {
+        id,
+        script,
+        set,
+        title: row[0],
+        chars,
+        tip
+      };
+    };
 
-    { char: 'ラ', romaji: 'ra', row: 'r', type: 'katakana', strokeCount: 2, mnemonic: 'A Raptor wearing sunglasses.', confusables: ['フ'] },
-    { char: 'リ', romaji: 'ri', row: 'r', type: 'katakana', strokeCount: 2, mnemonic: 'A River flowing down. Just like hiragana り.', confusables: ['ソ'] },
-    { char: 'ル', romaji: 'ru', row: 'r', type: 'katakana', strokeCount: 2, mnemonic: 'Two Roots of a tree.', confusables: ['レ'] },
-    { char: 'レ', romaji: 're', row: 'r', type: 'katakana', strokeCount: 1, mnemonic: 'A Red fish hook.', confusables: ['ル'] },
-    { char: 'ロ', romaji: 'ro', row: 'r', type: 'katakana', strokeCount: 3, mnemonic: 'A square Room.', confusables: ['口'] },
+    CHAPTERS.push({
+      id: 'h-base',
+      badge: '核心必學',
+      title: '平假名・清音',
+      subtitle: '日語最常出現的 46 個基礎字母（漢字草書演化）',
+      lessons: BASE_ROWS.map((_, i) => makeRowLesson(
+        'hb' + i, 'h', 'base', i,
+        i === 0 ? '科學秘訣：平假名全部來自你本來就會的「漢字草書」！搭配你聽得懂的日文單字一起記，大腦提取速度會快 3 倍。' : null
+      ))
+    });
 
-    { char: 'ワ', romaji: 'wa', row: 'w', type: 'katakana', strokeCount: 2, mnemonic: 'A Wine glass missing a side.', confusables: ['ク', 'ウ', 'フ'] },
-    { char: 'ヲ', romaji: 'wo', row: 'w', type: 'katakana', strokeCount: 3, mnemonic: 'A dog barking "Woof" with lines coming out of its mouth.', confusables: ['フ'] },
-    { char: 'ン', romaji: 'n', row: 'w', type: 'katakana', strokeCount: 2, mnemonic: 'No! It looks like an N pointing up, but slanted. Looks like a face looking downwards.', confusables: ['ソ', 'シ'] }
-  ],
-  getConfusables: function(char) {
-    const hiragana = this.HIRAGANA.find(k => k.char === char);
-    if (hiragana) return hiragana.confusables;
-    const katakana = this.KATAKANA.find(k => k.char === char);
-    if (katakana) return katakana.confusables;
-    return [];
+    CHAPTERS.push({
+      id: 'k-base',
+      badge: '外來語神兵',
+      title: '片假名・清音',
+      subtitle: '菜單、招牌、英文外來語必備 46 字（漢字偏旁演化）',
+      lessons: BASE_ROWS.map((_, i) => makeRowLesson(
+        'kb' + i, 'k', 'base', i,
+        i === 0 ? '科學秘訣：片假名取自「漢字偏旁」（如 イ←伊、カ←力、ロ←口），而且單字幾乎都是英文諧音（コーヒー Coffee、カメラ Camera）！' : null
+      ))
+    });
+
+    CHAPTERS.push({
+      id: 'daku',
+      badge: '字形免重背',
+      title: '濁音・半濁音',
+      subtitle: '右上角加兩點「゛」或小圈「゜」，發音規則一秒通',
+      lessons: [
+        ...DAKU_ROWS.map((_, i) => makeRowLesson(
+          'hd' + i, 'h', 'daku', i,
+          i === 0 ? '好消息！濁音不用學新字形：k→g、s→z、t→d、h→b，右上加小圈 h→p！' : null
+        )),
+        ...DAKU_ROWS.map((r, i) => ({
+          ...makeRowLesson('kd' + i, 'k', 'daku', i, null),
+          title: '片假名・' + r[0]
+        }))
+      ]
+    });
+
+    CHAPTERS.push({
+      id: 'yoon',
+      badge: '進階拼音',
+      title: '拗音組合',
+      subtitle: 'い段假名＋縮小版 ゃ・ゅ・ょ，合成單一音節',
+      lessons: [
+        ...YOON_ROWS.map((r, i) => ({
+          ...makeRowLesson('hy' + i, 'h', 'yoon', i, i === 0 ? '注意小字 ゃゅょ 只有一半大：きゃ 讀作單拍 kya，不是兩拍 ki-ya 喔！' : null),
+          title: '平假名・' + r[0]
+        })),
+        ...YOON_ROWS.map((r, i) => ({
+          ...makeRowLesson('ky' + i, 'k', 'yoon', i, null),
+          title: '片假名・' + r[0]
+        }))
+      ]
+    });
   }
-};
+  buildChapters();
+
+  const ALL_LESSONS = CHAPTERS.flatMap(ch => ch.lessons);
+  const LESSON_BY_ID = {};
+  ALL_LESSONS.forEach(l => { LESSON_BY_ID[l.id] = l; });
+
+  window.KanaDB = {
+    ROWS,
+    ITEMS,
+    BY_ID,
+    BY_KANA,
+    CONFUSE_GROUPS,
+    CHAPTERS,
+    ALL_LESSONS,
+    LESSON_BY_ID
+  };
+})();

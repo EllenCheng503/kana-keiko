@@ -1,1017 +1,1082 @@
-(function() {
-    'use strict';
+/**
+ * app.js — かな科学 主控制器 (v3.0)
+ * 科學微課程閉環：漢字字源 × 熟悉單字聽感 × 手指描紅 × 易混淆交錯提取 × 艾賓浩斯記憶排程
+ */
+(function () {
+  'use strict';
 
-    // --- DOM ELEMENTS CACHE ---
-    const DOM = {};
+  const $ = (id) => document.getElementById(id);
 
-    // --- STATE VARIABLES ---
-    let state = {
-        currentScreen: 'home',
-        learnMode: {
-            cards: [],
-            currentIndex: 0,
-            isFlipped: false,
-            isReview: false,
-            currentRow: null
-        },
-        quizMode: {
-            isActive: false,
-            audioOnly: false
-        },
-        writeMode: {
-            cards: [],
-            currentIndex: 0
-        },
-        synth: window.speechSynthesis,
-        voice: null
+  const UI = {
+    activeTab: 'home',
+    selectedChapterIdx: 0,
+    chartScript: 'h',
+    chartSet: 'base',
+
+    // 手寫道場狀態
+    writePoolType: 'current',
+    writeBlindMode: false,
+    writeList: [],
+    writeIdx: 0,
+
+    // 沉浸式學習／測驗階段狀態
+    session: null
+  };
+
+  let learnPad = null;
+  let dojoPad = null;
+  let toastTimer = null;
+
+  document.addEventListener('DOMContentLoaded', init);
+
+  function init() {
+    window.KanaEngine.load();
+    applyUserSettings();
+
+    if (!window.KanaEngine.isStorageWorking()) {
+      $('storageAlert').classList.remove('hidden');
+    }
+
+    // 綁定自動儲存視覺回饋
+    window.KanaEngine.onSave(() => {
+      const pill = $('saveStatusPill');
+      const txt = $('saveStatusText');
+      if (!pill || !txt) return;
+      pill.classList.add('saving');
+      txt.textContent = '進度已儲存 ✓';
+      setTimeout(() => {
+        pill.classList.remove('saving');
+      }, 450);
+    });
+
+    // 初始化兩個書道手寫畫布
+    learnPad = window.KanaPad.create($('learnTraceCanvas'), {
+      showGhost: true,
+      onStrokeChange: (cur, exp) => {
+        $('learnTraceStrokes').textContent = exp ? `${cur} / ${exp} 畫` : `${cur} 畫`;
+      }
+    });
+
+    dojoPad = window.KanaPad.create($('dojoCanvas'), {
+      showGhost: true,
+      onStrokeChange: (cur, exp) => {
+        $('dojoStrokeInfo').textContent = exp ? `筆畫：${cur} / ${exp} 畫` : `筆畫：${cur} 畫`;
+      }
+    });
+
+    // 預設選中推薦課程所在的章節
+    const nextLesson = window.KanaEngine.getNextRecommendedLesson();
+    const chIdx = window.KanaDB.CHAPTERS.findIndex(ch => ch.lessons.some(l => l.id === nextLesson.id));
+    UI.selectedChapterIdx = chIdx >= 0 ? chIdx : 0;
+
+    bindGlobalEvents();
+    refreshAllViews();
+    loadWritePool('current');
+
+    // 註冊最新版 Service Worker，確保離線可用且自動清除舊快取
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+      navigator.serviceWorker.register('sw.js?v=3.0').catch(() => {});
+    }
+  }
+
+  function applyUserSettings() {
+    const settings = window.KanaEngine.getSettings();
+    const isDark = settings.theme === 'dark';
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    $('iconMoon').classList.toggle('hidden', isDark);
+    $('iconSun').classList.toggle('hidden', !isDark);
+
+    const isMincho = settings.fontStyle === 'mincho';
+    document.body.classList.toggle('font-mincho', isMincho);
+    $('fontToggleLabel').textContent = isMincho ? '明體' : '黑體';
+    $('btnFontToggle').classList.toggle('active', isMincho);
+  }
+
+  function showToast(msg) {
+    const el = $('appToast');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.add('hidden'), 2400);
+  }
+
+  function escapeHtml(str) {
+    return String(str || '').replace(/[&<>"']/g, ch => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[ch]));
+  }
+
+  function formatWordHighlight(item) {
+    if (!item.word) return `<strong>${escapeHtml(item.kana)}</strong> (${escapeHtml(item.romaji)})`;
+    const [jp, rom, zh, emo] = item.word;
+    if (!jp) return `${emo || ''} ${escapeHtml(zh)}`;
+    const idx = jp.indexOf(item.kana);
+    let jpHtml = escapeHtml(jp);
+    if (idx >= 0) {
+      jpHtml = escapeHtml(jp.slice(0, idx))
+        + `<span class="hl">${escapeHtml(item.kana)}</span>`
+        + escapeHtml(jp.slice(idx + item.kana.length));
+    }
+    return `${emo || ''} <span lang="ja">${jpHtml}</span> · ${escapeHtml(rom)}（${escapeHtml(zh)}）`;
+  }
+
+  // ==================== 事件綁定 ====================
+  function bindGlobalEvents() {
+    // 頂部：字體與深色切換
+    $('btnThemeToggle').addEventListener('click', () => {
+      const cur = window.KanaEngine.getSettings().theme;
+      window.KanaEngine.updateSetting('theme', cur === 'dark' ? 'light' : 'dark');
+      applyUserSettings();
+      if (dojoPad) dojoPad.redraw();
+      if (learnPad) learnPad.redraw();
+    });
+
+    $('btnFontToggle').addEventListener('click', () => {
+      const cur = window.KanaEngine.getSettings().fontStyle;
+      const next = cur === 'mincho' ? 'gothic' : 'mincho';
+      window.KanaEngine.updateSetting('fontStyle', next);
+      applyUserSettings();
+      if (dojoPad) dojoPad.redraw();
+      if (learnPad) learnPad.redraw();
+      showToast(next === 'mincho' ? '已切換為「明體」（菜單與書籍字體）' : '已切換為「黑體」（手機與招牌字體）');
+    });
+
+    // 底部 4 分頁導覽
+    document.querySelectorAll('.nav-tab').forEach(btn => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+
+    // 首頁主行動與快捷特訓
+    $('btnHeroStart').addEventListener('click', () => {
+      const lesson = window.KanaEngine.getNextRecommendedLesson();
+      startGuidedLesson(lesson);
+    });
+
+    $('btnSmartReview').addEventListener('click', () => {
+      const items = window.KanaEngine.getSmartReviewItems(12);
+      if (items.length < 3) {
+        showToast('先完成第 1 堂微課程，就能啟動個人化弱點複習！');
+        startGuidedLesson(window.KanaEngine.getNextRecommendedLesson());
+        return;
+      }
+      startQuizOnlySession(items, 'review', '智慧弱點複習');
+    });
+
+    $('btnConfusableBlitz').addEventListener('click', startConfusableBlitz);
+
+    // 五十音表切換
+    $('chartScriptTabs').addEventListener('click', e => {
+      const btn = e.target.closest('[data-script]');
+      if (!btn) return;
+      UI.chartScript = btn.dataset.script;
+      $('chartScriptTabs').querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('active', b === btn));
+      renderGojuonChart();
+    });
+
+    $('chartSetTabs').addEventListener('click', e => {
+      const btn = e.target.closest('[data-set]');
+      if (!btn) return;
+      UI.chartSet = btn.dataset.set;
+      $('chartSetTabs').querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('active', b === btn));
+      renderGojuonChart();
+    });
+
+    // 手寫道場控制項
+    $('writePoolTabs').addEventListener('click', e => {
+      const btn = e.target.closest('[data-pool]');
+      if (!btn) return;
+      $('writePoolTabs').querySelectorAll('.seg-pill').forEach(b => b.classList.toggle('active', b === btn));
+      loadWritePool(btn.dataset.pool);
+    });
+
+    $('btnModeTrace').addEventListener('click', () => setWriteBlindMode(false));
+    $('btnModeBlind').addEventListener('click', () => setWriteBlindMode(true));
+    $('btnWriteSpeak').addEventListener('click', () => {
+      const it = UI.writeList[UI.writeIdx];
+      if (it) window.KanaEngine.speakItem(it, true);
+    });
+    $('btnWritePeek').addEventListener('click', () => dojoPad.peekGhost(1300));
+    $('btnDojoUndo').addEventListener('click', () => dojoPad.undo());
+    $('btnDojoClear').addEventListener('click', () => {
+      dojoPad.clear();
+      $('dojoVerdict').classList.add('hidden');
+    });
+    $('btnDojoCheck').addEventListener('click', evaluateDojoWriting);
+    $('btnWritePrev').addEventListener('click', () => {
+      if (!UI.writeList.length) return;
+      UI.writeIdx = (UI.writeIdx - 1 + UI.writeList.length) % UI.writeList.length;
+      renderDojoCurrent();
+    });
+    $('btnWriteNext').addEventListener('click', () => {
+      if (!UI.writeList.length) return;
+      UI.writeIdx = (UI.writeIdx + 1) % UI.writeList.length;
+      renderDojoCurrent();
+    });
+
+    // 記憶數據與備份
+    $('btnDrillWeakest').addEventListener('click', () => {
+      const items = window.KanaEngine.getSmartReviewItems(10);
+      if (items.length < 2) {
+        showToast('目前還沒有弱點紀錄，先學一課試試看吧！');
+        return;
+      }
+      startQuizOnlySession(items, 'review', '弱點專項擊破');
+    });
+
+    $('btnExportBackup').addEventListener('click', () => {
+      window.KanaEngine.exportBackupJSON();
+      showToast('已下載進度備份檔 (.json)');
+    });
+
+    $('btnImportBackup').addEventListener('click', () => $('fileImportInput').click());
+    $('fileImportInput').addEventListener('change', e => {
+      const file = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const ok = window.KanaEngine.importBackupJSON(reader.result);
+          if (ok) {
+            refreshAllViews();
+            loadWritePool(UI.writePoolType);
+            showToast('✅ 進度備份還原成功！');
+          } else {
+            showToast('⚠️ 備份檔格式不正確');
+          }
+        } catch (_) {
+          showToast('⚠️ 無法讀取該備份檔');
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    $('btnResetProgress').addEventListener('click', () => {
+      if (confirm('確定要清空所有學習紀錄從頭開始嗎？建議可先匯出備份檔。')) {
+        window.KanaEngine.resetAllProgress();
+        refreshAllViews();
+        loadWritePool('current');
+        showToast('學習紀錄已重置');
+      }
+    });
+
+    // 沉浸式課程／測驗視窗按鈕
+    $('btnSessionClose').addEventListener('click', closeSessionOverlay);
+    $('btnSkipToQuiz').addEventListener('click', () => {
+      if (UI.session && UI.session.lesson) {
+        beginQuizPhase(UI.session.lesson.chars, 'lesson');
+      }
+    });
+    $('btnEncodeSpeak').addEventListener('click', () => {
+      if (UI.session && UI.session.phase === 'learn') {
+        const it = UI.session.learnChars[UI.session.learnIdx];
+        window.KanaEngine.speakItem(it, true);
+      }
+    });
+    $('btnLearnTraceClear').addEventListener('click', () => learnPad.clear());
+    $('btnLearnPrev').addEventListener('click', () => {
+      if (!UI.session || UI.session.learnIdx <= 0) return;
+      UI.session.learnIdx--;
+      renderLearnStep();
+    });
+    $('btnLearnNext').addEventListener('click', () => {
+      if (!UI.session) return;
+      if (UI.session.learnIdx < UI.session.learnChars.length - 1) {
+        UI.session.learnIdx++;
+        renderLearnStep();
+      } else {
+        beginQuizPhase(UI.session.learnChars, 'lesson');
+      }
+    });
+
+    $('btnQuizHint').addEventListener('click', showQuizEtymologyHint);
+    $('btnFbSpeak').addEventListener('click', () => {
+      if (UI.session && UI.session.currentQuestion) {
+        window.KanaEngine.speakItem(UI.session.currentQuestion.item, true);
+      }
+    });
+    $('btnQuizContinue').addEventListener('click', nextQuizStep);
+    $('btnResultHome').addEventListener('click', closeSessionOverlay);
+    $('btnResultNextAction').addEventListener('click', () => {
+      const nextLesson = window.KanaEngine.getNextRecommendedLesson();
+      startGuidedLesson(nextLesson);
+    });
+
+    // Bottom Sheet 關閉
+    $('btnSheetClose').addEventListener('click', closeDetailSheet);
+    $('detailSheetBackdrop').addEventListener('click', e => {
+      if (e.target.id === 'detailSheetBackdrop') closeDetailSheet();
+    });
+
+    // 視窗大小變更時重算畫布
+    window.addEventListener('resize', () => {
+      if (UI.activeTab === 'write' && dojoPad) dojoPad.resize();
+      if (UI.session && UI.session.phase === 'learn' && learnPad) learnPad.resize();
+    });
+  }
+
+  function switchTab(tabId) {
+    UI.activeTab = tabId;
+    document.querySelectorAll('.nav-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tabId));
+    document.querySelectorAll('.tab-page').forEach(p => p.classList.toggle('active', p.id === `page-${tabId}`));
+    $('mainScroll').scrollTop = 0;
+
+    if (tabId === 'home') renderHomeView();
+    if (tabId === 'chart') renderGojuonChart();
+    if (tabId === 'write') {
+      setTimeout(() => dojoPad.resize(), 30);
+    }
+    if (tabId === 'stats') renderStatsView();
+  }
+
+  function refreshAllViews() {
+    const stats = window.KanaEngine.getOverviewStats();
+    $('headerStreak').textContent = stats.streak;
+    renderHomeView();
+    renderGojuonChart();
+    renderStatsView();
+  }
+
+  // ==================== TAB 1：渲染學習路徑首頁 ====================
+  function renderHomeView() {
+    const stats = window.KanaEngine.getOverviewStats();
+    const state = window.KanaEngine.getState();
+    const nextLesson = window.KanaEngine.getNextRecommendedLesson();
+    const nextIdx = window.KanaDB.ALL_LESSONS.findIndex(l => l.id === nextLesson.id) + 1;
+
+    $('headerStreak').textContent = stats.streak;
+    $('dailyGoalBadge').textContent = `今日 ${stats.todayCount} / ${stats.dailyGoal} 題`;
+
+    const scriptBadge = nextLesson.script === 'h' ? '平假名' : '片假名';
+    $('heroLessonTitle').textContent = `第 ${nextIdx} 課 · ${scriptBadge} ${nextLesson.title}`;
+    $('btnHeroStartLabel').textContent = state.doneLessons.length === 0
+      ? '開始第 1 堂 3 分鐘科學課'
+      : `繼續第 ${nextIdx} 課（${nextLesson.chars.length} 字）`;
+
+    // 渲染英雄卡本課 5 字預覽（點擊單顆可直接聽發音！）
+    const strip = $('heroKanaStrip');
+    strip.innerHTML = '';
+    nextLesson.chars.slice(0, 6).forEach(it => {
+      const btn = document.createElement('button');
+      btn.className = 'hero-kana-pill';
+      btn.title = '點擊試聽發音';
+      btn.innerHTML = `<span class="k" lang="ja">${escapeHtml(it.kana)}</span><span class="r">${escapeHtml(it.romaji)}</span>`;
+      btn.addEventListener('click', () => window.KanaEngine.speakItem(it, true));
+      strip.appendChild(btn);
+    });
+
+    $('homeHiraCount').textContent = `${stats.hiraBaseLearned} / ${stats.hiraBaseTotal}`;
+    $('homeHiraBar').style.width = `${Math.round((stats.hiraBaseLearned / stats.hiraBaseTotal) * 100)}%`;
+    $('homeKataCount').textContent = `${stats.kataBaseLearned} / ${stats.kataBaseTotal}`;
+    $('homeKataBar').style.width = `${Math.round((stats.kataBaseLearned / stats.kataBaseTotal) * 100)}%`;
+
+    // 智慧弱點複習狀態
+    const dueBadge = $('dueBadgeCount');
+    if (stats.dueCount > 0) {
+      dueBadge.textContent = stats.dueCount;
+      dueBadge.classList.remove('hidden');
+      $('smartReviewSub').textContent = `${stats.dueCount} 個字到達最佳複習時間點`;
+    } else {
+      dueBadge.classList.add('hidden');
+      $('smartReviewSub').textContent = stats.learnedCount > 0
+        ? `已學 ${stats.learnedCount} 字 · 隨時抽考弱點`
+        : '學完第 1 課自動啟用';
+    }
+
+    $('courseDoneSummary').textContent = `${stats.doneLessonsCount} / ${stats.totalLessonsCount} 課完成`;
+
+    // 章節切換標籤
+    const chTabs = $('chapterTabs');
+    chTabs.innerHTML = '';
+    window.KanaDB.CHAPTERS.forEach((ch, idx) => {
+      const doneInCh = ch.lessons.filter(l => state.doneLessons.includes(l.id)).length;
+      const btn = document.createElement('button');
+      btn.className = 'seg-pill' + (idx === UI.selectedChapterIdx ? ' active' : '');
+      btn.textContent = `${ch.title} (${doneInCh}/${ch.lessons.length})`;
+      btn.addEventListener('click', () => {
+        UI.selectedChapterIdx = idx;
+        renderHomeView();
+      });
+      chTabs.appendChild(btn);
+    });
+
+    const activeChapter = window.KanaDB.CHAPTERS[UI.selectedChapterIdx] || window.KanaDB.CHAPTERS[0];
+    $('chapterSubtitle').textContent = activeChapter.subtitle;
+
+    // 渲染單元清單
+    const listEl = $('lessonList');
+    listEl.innerHTML = '';
+    activeChapter.lessons.forEach((lesson) => {
+      const globalNum = window.KanaDB.ALL_LESSONS.indexOf(lesson) + 1;
+      const isDone = state.doneLessons.includes(lesson.id);
+      const isNext = lesson.id === nextLesson.id;
+
+      let sumLevel = 0;
+      lesson.chars.forEach(c => {
+        const card = window.KanaEngine.getCard(c.id);
+        if (card) sumLevel += card.level;
+      });
+      const masteryPct = Math.round((sumLevel / (lesson.chars.length * window.KanaEngine.MAX_LEVEL)) * 100);
+
+      const cardEl = document.createElement('div');
+      cardEl.className = 'lesson-card' + (isDone ? ' is-done' : '') + (isNext ? ' is-next' : '');
+
+      const chipsHtml = lesson.chars.map(c => {
+        const cd = window.KanaEngine.getCard(c.id);
+        const cls = !cd ? '' : (cd.level >= 4 ? ' mastered' : ' learned');
+        return `<span class="char-chip${cls}" lang="ja">${escapeHtml(c.kana)}<small>${escapeHtml(c.romaji)}</small></span>`;
+      }).join('');
+
+      cardEl.innerHTML = `
+        <div class="lesson-top">
+          <div class="lesson-badge-group">
+            <span class="step-dot">${isDone ? '✓' : globalNum}</span>
+            <span class="lesson-name">${escapeHtml(lesson.title)}</span>
+          </div>
+          <span class="lesson-mastery-pct">記憶度 ${masteryPct}%</span>
+        </div>
+        <div class="lesson-chars-preview">${chipsHtml}</div>
+        <div class="lesson-actions">
+          <button class="lesson-btn-learn" data-action="learn">${isDone ? '複習字源與描紅' : (isNext ? '▶ 開始學習本課' : '學習本課')}</button>
+          <button class="lesson-btn-quiz" data-action="quiz">直接測驗</button>
+        </div>
+      `;
+
+      cardEl.querySelector('[data-action="learn"]').addEventListener('click', () => startGuidedLesson(lesson));
+      cardEl.querySelector('[data-action="quiz"]').addEventListener('click', () => {
+        startQuizOnlySession(lesson.chars, 'lesson', `${lesson.title} 測驗`, lesson.id);
+      });
+
+      listEl.appendChild(cardEl);
+    });
+  }
+
+  // ==================== 易混淆字秒殺特訓 ====================
+  function startConfusableBlitz() {
+    const state = window.KanaEngine.getState();
+    // 優先挑學習者已接觸過的易混淆字；若剛開始學，精選最經典必考平片假名雙胞胎
+    let pool = window.KanaDB.ITEMS.filter(it => it.confusables.length > 0 && state.cards[it.id]);
+    if (pool.length < 6) {
+      const classicKanas = ['あ','お','き','さ','ち','は','ほ','ま','る','ろ','ぬ','め','シ','ツ','ソ','ン'];
+      pool = classicKanas.map(k => window.KanaDB.BY_KANA[k]).filter(Boolean);
+    }
+    startQuizOnlySession(pool, 'confusable', '易混淆字對決特訓');
+  }
+
+  // ==================== 沉浸式微課程與測驗引擎 ====================
+  function startGuidedLesson(lesson) {
+    UI.session = {
+      mode: 'lesson',
+      lesson,
+      title: lesson.title,
+      phase: 'learn',
+      learnChars: lesson.chars,
+      learnIdx: 0,
+      questions: [],
+      qIdx: 0,
+      correctFirstTry: 0,
+      totalInitialQuestions: 0,
+      combo: 0,
+      answeredCurrent: false
     };
 
-    // --- INITIALIZATION ---
-    document.addEventListener('DOMContentLoaded', init);
+    $('sessionOverlay').classList.remove('hidden');
+    $('sessionLearnBody').classList.remove('hidden');
+    $('sessionQuizBody').classList.add('hidden');
+    $('sessionResultBody').classList.add('hidden');
 
-    function init() {
-        cacheDOM();
-        bindEvents();
-        initSpeechSynthesis();
-        
-        // Load data
-        window.SRS.load();
-        window.Progress.load();
-        
-        // Initialize if first time
-        const stats = window.SRS.getStats();
-        if (stats.totalCards === 0) {
-            window.SRS.initCards(window.KanaData.HIRAGANA.concat(window.KanaData.KATAKANA));
-            window.SRS.save();
-        }
+    renderLearnStep();
+  }
 
-        // Welcome back or First time
-        if (stats.learned > 0) {
-            showToast('歡迎回來！進度已載入 ✅', 'success');
-        }
-
-        updateHeader();
-        updateHome();
-        switchScreen('home');
-
-        // Check for onboarding
-        if (stats.learned === 0) {
-            showOnboardingModal();
-        }
-    }
-
-    function cacheDOM() {
-        const ids = [
-            'app-header', 'headerStreak', 'headerStreakCount', 'btnThemeToggle',
-            'home', 'homeLevelBadge', 'homeLevelNum', 'welcomeText', 'homeXPBar', 'homeXPText', 'homeStatsRow',
-            'statDue', 'statDone', 'statAccuracy', 'statLearned', 'btnStartLearn', 'btnStartReview',
-            'reviewDueText', 'btnStartQuiz', 'btnStartWrite', 'btnViewProgress', 'homeMiniGrid',
-            'learn', 'rowSelector', 'learnCard', 'learnKana', 'learnRomaji', 'learnKanaBack', 'learnRomajiBack',
-            'learnMnemonic', 'learnStrokeCount', 'btnSpeak', 'btnPrevKana', 'btnNextKana', 'learnCounter', 'srsButtons',
-            'quiz', 'quizSetup', 'quizActive', 'quizResults', 'quizScope', 'quizCount', 'btnStartQuizGo',
-            'quizProgressBar', 'quizCounter', 'quizScore', 'quizPrompt', 'quizKana', 'btnQuizSpeak', 'quizOptions',
-            'quizFeedback', 'feedbackIcon', 'feedbackAnswer', 'feedbackMnemonic', 'btnQuizNext', 'resultsIcon',
-            'resultsTitle', 'resultCorrect', 'resultWrong', 'resultAccuracy', 'resultXP', 'resultsMistakes',
-            'mistakesList', 'resultsAchievements', 'achievementList', 'btnQuizRetry', 'btnQuizHome',
-            'write', 'writeRomaji', 'writeRefChar', 'drawCanvas', 'currentStrokes', 'expectedStrokes',
-            'btnClearCanvas', 'btnUndoStroke', 'btnShowHint', 'btnCheckWrite', 'btnPrevWrite', 'btnNextWrite',
-            'writeCounter', 'writeRowSelector',
-            'progress', 'progressLevelBadge', 'progressLevelNum', 'progressLevelTitle', 'progressXPBar',
-            'progressXPText', 'progressStreak', 'progressTotalReviews', 'progressAccuracy', 'masteryGrid', 'achievementsGrid',
-            'modal', 'modalBackdrop', 'modalContent', 'modalClose', 'modalBody',
-            'toast', 'toastIcon', 'toastText', 'confettiContainer'
-        ];
-
-        ids.forEach(id => {
-            DOM[id] = document.getElementById(id);
-        });
-
-        // Add dynamically created save indicator
-        const saveIndicator = document.createElement('div');
-        saveIndicator.id = 'saveIndicator';
-        saveIndicator.className = 'hidden';
-        saveIndicator.style.position = 'absolute';
-        saveIndicator.style.top = '10px';
-        saveIndicator.style.right = '60px';
-        saveIndicator.style.background = 'var(--bg-color)';
-        saveIndicator.style.padding = '4px 8px';
-        saveIndicator.style.borderRadius = '12px';
-        saveIndicator.style.fontSize = '0.8rem';
-        saveIndicator.style.boxShadow = '0 2px 5px rgba(0,0,0,0.1)';
-        saveIndicator.style.zIndex = '1000';
-        saveIndicator.style.transition = 'opacity 0.3s ease';
-        saveIndicator.innerText = '☁️ 已儲存';
-        document.body.appendChild(saveIndicator);
-        DOM.saveIndicator = saveIndicator;
-    }
-
-    function bindEvents() {
-        // Header
-        if(DOM.btnThemeToggle) {
-            DOM.btnThemeToggle.addEventListener('click', toggleTheme);
-        }
-
-        // Tab Bar Navigation
-        document.querySelectorAll('.tab-item').forEach(tab => {
-            tab.addEventListener('click', function() {
-                const screen = this.dataset.screen;
-                if (screen === 'quiz') {
-                    switchScreen('quizSetup');
-                } else if (screen === 'learn') {
-                    setupLearnSelection();
-                } else if (screen === 'write') {
-                    setupWriteSelection();
-                } else if (screen === 'progress') {
-                    updateProgressScreen();
-                    switchScreen('progress');
-                } else {
-                    updateHome();
-                    switchScreen(screen);
-                }
-            });
-        });
-
-        // Navigation
-        DOM.btnStartLearn.addEventListener('click', () => setupLearnSelection());
-        DOM.btnStartReview.addEventListener('click', () => startReviewSession());
-        DOM.btnStartQuiz.addEventListener('click', () => switchScreen('quizSetup'));
-        DOM.btnStartWrite.addEventListener('click', () => setupWriteSelection());
-        DOM.btnViewProgress.addEventListener('click', () => { updateProgressScreen(); switchScreen('progress'); });
-        
-        // Learn Screen
-        DOM.learnCard.addEventListener('click', flipLearnCard);
-        DOM.btnSpeak.addEventListener('click', (e) => { e.stopPropagation(); speakCurrentKana(); });
-        DOM.btnNextKana.addEventListener('click', nextLearnCard);
-        DOM.btnPrevKana.addEventListener('click', prevLearnCard);
-        
-        // SRS Buttons (delegation)
-        DOM.srsButtons.addEventListener('click', (e) => {
-            const btn = e.target.closest('.srs-btn');
-            if (btn) {
-                const quality = parseInt(btn.dataset.quality, 10);
-                submitSRS(quality);
-            }
-        });
-
-        // Quiz Screen
-        DOM.btnStartQuizGo.addEventListener('click', startQuizMode);
-        DOM.btnQuizNext.addEventListener('click', nextQuizQuestion);
-        DOM.btnQuizSpeak.addEventListener('click', () => {
-            const q = window.Quiz.getCurrentQuestion();
-            if (q) speakJapanese(q.kana);
-        });
-        DOM.btnQuizRetry.addEventListener('click', () => switchScreen('quizSetup'));
-        DOM.btnQuizHome.addEventListener('click', () => { updateHome(); switchScreen('home'); });
-
-        // Write Screen
-        DOM.btnClearCanvas.addEventListener('click', () => window.DrawingPad.clear());
-        DOM.btnUndoStroke.addEventListener('click', () => window.DrawingPad.undo());
-        DOM.btnShowHint.addEventListener('click', showWriteHint);
-        DOM.btnCheckWrite.addEventListener('click', checkWriteCanvas);
-        DOM.btnNextWrite.addEventListener('click', nextWriteCard);
-        DOM.btnPrevWrite.addEventListener('click', prevWriteCard);
-
-        // Modal
-        DOM.modalClose.addEventListener('click', hideModal);
-        DOM.modalBackdrop.addEventListener('click', hideModal);
-
-        // Window resize for canvas
-        window.addEventListener('resize', () => {
-            if (state.currentScreen === 'write') {
-                window.DrawingPad.resize();
-            }
-        });
-
-        // Global keydown for shortcuts
-        document.addEventListener('keydown', handleGlobalKeydown);
-    }
-
-    // --- SPEECH SYNTHESIS ---
-    function initSpeechSynthesis() {
-        if (!state.synth) return;
-        
-        const loadVoices = () => {
-            const voices = state.synth.getVoices();
-            state.voice = voices.find(v => v.lang.includes('ja')) || voices[0];
-        };
-        
-        loadVoices();
-        if (state.synth.onvoiceschanged !== undefined) {
-            state.synth.onvoiceschanged = loadVoices;
-        }
-    }
-
-    window.speakJapanese = function(text) {
-        if (!state.synth || !text) return;
-        
-        // Cancel any ongoing speech
-        state.synth.cancel();
-        
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'ja-JP';
-        if (state.voice) utterance.voice = state.voice;
-        utterance.rate = 0.9;
-        
-        state.synth.speak(utterance);
+  function startQuizOnlySession(items, quizMode, title, lessonId = null) {
+    UI.session = {
+      mode: quizMode,
+      lesson: lessonId ? window.KanaDB.LESSON_BY_ID[lessonId] : null,
+      title,
+      phase: 'quiz',
+      learnChars: items,
+      learnIdx: 0,
+      questions: [],
+      qIdx: 0,
+      correctFirstTry: 0,
+      totalInitialQuestions: 0,
+      combo: 0,
+      answeredCurrent: false
     };
 
-    function speakCurrentKana() {
-        const card = state.learnMode.cards[state.learnMode.currentIndex];
+    $('sessionOverlay').classList.remove('hidden');
+    $('sessionLearnBody').classList.add('hidden');
+    $('sessionResultBody').classList.add('hidden');
+    beginQuizPhase(items, quizMode === 'confusable' ? 'confusable' : (quizMode === 'lesson' ? 'lesson' : 'review'));
+  }
+
+  function closeSessionOverlay() {
+    UI.session = null;
+    $('sessionOverlay').classList.add('hidden');
+    refreshAllViews();
+    loadWritePool(UI.writePoolType);
+  }
+
+  function renderLearnStep() {
+    const s = UI.session;
+    if (!s) return;
+    const item = s.learnChars[s.learnIdx];
+    window.KanaEngine.markIntroduced(item.id);
+
+    const totalSteps = s.learnChars.length * 2; // 建檔佔前 50% 進度條
+    const pct = Math.round(((s.learnIdx + 1) / totalSteps) * 100);
+    $('sessionProgressBar').style.width = `${pct}%`;
+    $('sessionStepLabel').textContent = `${s.learnIdx + 1} / ${s.learnChars.length}`;
+
+    if (s.learnIdx === 0 && s.lesson && s.lesson.tip) {
+      $('lessonTipBanner').textContent = '💡 ' + s.lesson.tip;
+      $('lessonTipBanner').classList.remove('hidden');
+    } else {
+      $('lessonTipBanner').classList.add('hidden');
+    }
+
+    $('encodeKana').textContent = item.kana;
+    $('encodeRomaji').textContent = item.romaji;
+
+    if (item.lore) {
+      $('encodeKanji').textContent = item.lore[0];
+      $('encodeEtymBox').querySelector('.etym-caption').textContent = item.script === 'h' ? '漢字草書來源' : '漢字偏旁來源';
+    } else {
+      $('encodeKanji').textContent = item.pair;
+      $('encodeEtymBox').querySelector('.etym-caption').textContent = '對應平片假名';
+    }
+    $('encodePairTag').textContent = item.script === 'h' ? `對應片假名：${item.pair}` : `對應平假名：${item.pair}`;
+
+    $('encodeWordDisplay').innerHTML = formatWordHighlight(item);
+
+    // 三重認知線索卡
+    let cuesHtml = '';
+    if (item.lore) {
+      cuesHtml += `<div class="cue-row"><span class="cue-tag">字源</span><span>${escapeHtml(item.lore[1])}</span></div>`;
+    } else if (item.set === 'daku') {
+      cuesHtml += `<div class="cue-row"><span class="cue-tag">規則</span><span>清音右上加濁點「゛」或半濁點「゜」，字形不必重背！</span></div>`;
+    } else {
+      cuesHtml += `<div class="cue-row"><span class="cue-tag">規則</span><span>い段假名＋小字 ゃ/ゅ/ょ 合成單一音節。</span></div>`;
+    }
+
+    if (item.mnemo) {
+      cuesHtml += `<div class="cue-row"><span class="cue-tag">聯想</span><span>${item.mnemo[0]} ${escapeHtml(item.mnemo[1])}</span></div>`;
+    }
+
+    if (item.contrastTip) {
+      cuesHtml += `<div class="cue-row warn"><span class="cue-tag">防混雷達</span><span>${escapeHtml(item.contrastTip)}</span></div>`;
+    }
+    $('encodeCues').innerHTML = cuesHtml;
+
+    $('btnLearnPrev').disabled = s.learnIdx === 0;
+    $('btnLearnNext').textContent = s.learnIdx === s.learnChars.length - 1
+      ? '建檔完成！進入提取測驗 →'
+      : '記住了，下一個 →';
+
+    setTimeout(() => {
+      learnPad.setTarget(item, true);
+    }, 20);
+
+    if (window.KanaEngine.getSettings().autoSpeak) {
+      window.KanaEngine.speakItem(item, true);
+    }
+  }
+
+  // ==================== 階段 B：漸進式主動提取測驗 ====================
+  function beginQuizPhase(items, deckMode) {
+    const s = UI.session;
+    if (!s) return;
+    s.phase = 'quiz';
+    s.questions = window.KanaEngine.buildQuizDeck(items, deckMode);
+    s.qIdx = 0;
+    s.totalInitialQuestions = s.questions.length;
+    s.correctFirstTry = 0;
+    s.combo = 0;
+
+    $('sessionLearnBody').classList.add('hidden');
+    $('sessionResultBody').classList.add('hidden');
+    $('sessionQuizBody').classList.remove('hidden');
+
+    renderCurrentQuizQuestion();
+  }
+
+  function renderCurrentQuizQuestion() {
+    const s = UI.session;
+    if (!s || s.qIdx >= s.questions.length) {
+      finishSession();
+      return;
+    }
+
+    const q = s.questions[s.qIdx];
+    s.currentQuestion = q;
+    s.answeredCurrent = false;
+
+    const baseOffset = s.mode === 'lesson' ? 50 : 0;
+    const span = s.mode === 'lesson' ? 50 : 100;
+    const pct = baseOffset + Math.round(((s.qIdx) / Math.max(1, s.questions.length)) * span);
+    $('sessionProgressBar').style.width = `${Math.min(98, pct)}%`;
+    $('sessionStepLabel').textContent = `${s.qIdx + 1} / ${s.questions.length}`;
+
+    $('quizFeedbackDrawer').classList.add('hidden');
+    $('quizHintBox').classList.add('hidden');
+    $('btnQuizHint').classList.remove('hidden');
+
+    // 連對徽章
+    if (s.combo >= 2) {
+      $('quizComboPill').textContent = `連對 🔥 ${s.combo}`;
+      $('quizComboPill').classList.remove('hidden');
+    } else {
+      $('quizComboPill').classList.add('hidden');
+    }
+
+    // 題型標題與題幹渲染
+    const stim = $('quizStimulusCard');
+    const item = q.item;
+
+    if (q.type === 'kana-to-romaji') {
+      $('quizTypeBadge').textContent = q.retried ? '錯題強化重測 · 看字辨音' : '視覺提取 · 看字辨音';
+      stim.innerHTML = `
+        <div class="q-instruction">這個假名的發音是？</div>
+        <div class="q-giant-kana" lang="ja">${escapeHtml(item.kana)}</div>
+      `;
+    } else if (q.type === 'romaji-to-kana') {
+      const scriptName = item.script === 'h' ? '平假名' : '片假名';
+      $('quizTypeBadge').textContent = q.retried ? '錯題強化重測 · 聽音選字' : '逆向提取 · 選出正確字形';
+      stim.innerHTML = `
+        <div class="q-instruction">選出發音為下列拼音的「${scriptName}」</div>
+        <div class="q-giant-romaji">${escapeHtml(item.romaji)}</div>
+      `;
+    } else if (q.type === 'audio-to-kana') {
+      const wordClue = item.word && item.word[2] ? `（單字提示：${item.word[3] || ''} ${escapeHtml(item.word[2])}）` : '';
+      $('quizTypeBadge').textContent = '聽覺錨點 · 聽發音辨假名';
+      stim.innerHTML = `
+        <div class="q-instruction">聽日語發音，選出對應的假名</div>
+        <button class="q-audio-btn" id="btnStimAudioReplay" aria-label="重播發音">🔊</button>
+        <div class="q-word-sub">${wordClue || '點擊喇叭可重聽'}</div>
+      `;
+      stim.querySelector('#btnStimAudioReplay').addEventListener('click', () => {
+        window.KanaEngine.speakItem(item, true);
+      });
+      setTimeout(() => window.KanaEngine.speakItem(item, true), 80);
+    } else if (q.type === 'word-fill') {
+      const [, rom, zh, emo] = item.word;
+      $('quizTypeBadge').textContent = '詞彙實戰 · 單字填空';
+      stim.innerHTML = `
+        <div class="q-instruction">填入正確假名完成你熟悉的單字</div>
+        <div class="q-word-box" lang="ja">${emo || ''} ${escapeHtml(q.wordMasked)}</div>
+        <div class="q-word-sub">${escapeHtml(rom)} · ${escapeHtml(zh)}</div>
+      `;
+      setTimeout(() => window.KanaEngine.speak(item.word[0], 0.85), 80);
+    }
+
+    // 渲染 4 個選項
+    const grid = $('quizChoicesGrid');
+    grid.innerHTML = '';
+    const showRomajiOnButton = q.type === 'kana-to-romaji';
+
+    q.choices.forEach(choice => {
+      const btn = document.createElement('button');
+      btn.className = 'choice-tile' + (showRomajiOnButton ? ' romaji-choice' : '');
+      if (!showRomajiOnButton) btn.setAttribute('lang', 'ja');
+      btn.textContent = showRomajiOnButton ? choice.romaji : choice.kana;
+      btn.addEventListener('click', () => handleChoiceSelect(choice, btn));
+      grid.appendChild(btn);
+    });
+  }
+
+  function showQuizEtymologyHint() {
+    const s = UI.session;
+    if (!s || !s.currentQuestion) return;
+    const it = s.currentQuestion.item;
+    let hintText = '';
+    if (it.lore) {
+      hintText = `漢字字源：「${it.lore[0]}」— ${it.lore[1]}`;
+    } else if (it.mnemo) {
+      hintText = `${it.mnemo[0]} ${it.mnemo[1]}`;
+    } else {
+      hintText = `對應字形提示：${it.pair}`;
+    }
+    const box = $('quizHintBox');
+    box.textContent = '💡 ' + hintText;
+    box.classList.remove('hidden');
+    $('btnQuizHint').classList.add('hidden');
+  }
+
+  function handleChoiceSelect(chosenItem, btnEl) {
+    const s = UI.session;
+    if (!s || s.answeredCurrent) return;
+    s.answeredCurrent = true;
+
+    const q = s.currentQuestion;
+    const target = q.item;
+    const isCorrect = chosenItem.id === target.id;
+    const showRomajiOnButton = q.type === 'kana-to-romaji';
+
+    // 標記按鈕顏色
+    Array.from($('quizChoicesGrid').children).forEach((b, idx) => {
+      const cItem = q.choices[idx];
+      if (cItem.id === target.id) b.classList.add('correct');
+      else if (b === btnEl && !isCorrect) b.classList.add('wrong');
+      b.disabled = true;
+    });
+
+    window.KanaEngine.recordAnswer(target.id, isCorrect);
+    window.KanaEngine.playTone(isCorrect ? 'correct' : 'wrong');
+    window.KanaEngine.speakItem(target, true);
+
+    const drawer = $('quizFeedbackDrawer');
+    drawer.classList.remove('hidden', 'is-ok', 'is-bad');
+    $('btnQuizHint').classList.add('hidden');
+    $('quizHintBox').classList.add('hidden');
+
+    if (isCorrect) {
+      if (!q.retried) s.correctFirstTry++;
+      s.combo++;
+      drawer.classList.add('is-ok');
+      $('fbTitle').textContent = `✓ 正確！ ${target.kana} = ${target.romaji}`;
+      let detail = formatWordHighlight(target);
+      if (target.lore) detail += `<br>漢字來源：<strong>${escapeHtml(target.lore[0])}</strong>（${escapeHtml(target.lore[1])}）`;
+      $('fbDetail').innerHTML = detail;
+    } else {
+      s.combo = 0;
+      drawer.classList.add('is-bad');
+      const wrongLabel = showRomajiOnButton ? `${chosenItem.romaji}（${chosenItem.kana}）` : `${chosenItem.kana}（${chosenItem.romaji}）`;
+      $('fbTitle').textContent = `正解是「${target.kana} (${target.romaji})」`;
+
+      let fixHtml = `你剛剛選到了 <strong>${escapeHtml(wrongLabel)}</strong>。<br>`;
+      if (target.contrastTip) {
+        fixHtml += `⚡ <strong>分辨關鍵：</strong>${escapeHtml(target.contrastTip)}`;
+      } else if (target.lore) {
+        fixHtml += `💡 <strong>字源秒記：</strong>源自「${escapeHtml(target.lore[0])}」— ${escapeHtml(target.lore[1])}`;
+      }
+      $('fbDetail').innerHTML = fixHtml;
+
+      // 精通學習法：答錯的題目自動排入本輪尾端重測一次，確保真正學會才下課
+      if (!q.retried) {
+        s.questions.push({
+          ...q,
+          choices: q.choices.slice().sort(() => Math.random() - 0.5),
+          retried: true
+        });
+      }
+    }
+  }
+
+  function nextQuizStep() {
+    const s = UI.session;
+    if (!s) return;
+    s.qIdx++;
+    renderCurrentQuizQuestion();
+  }
+
+  function finishSession() {
+    const s = UI.session;
+    if (!s) return;
+    s.phase = 'result';
+
+    if (s.lesson) {
+      window.KanaEngine.markLessonComplete(s.lesson.id);
+    }
+    window.KanaEngine.playTone('complete');
+
+    $('sessionProgressBar').style.width = '100%';
+    $('sessionStepLabel').textContent = '完成';
+    $('sessionLearnBody').classList.add('hidden');
+    $('sessionQuizBody').classList.add('hidden');
+    $('sessionResultBody').classList.remove('hidden');
+
+    const acc = s.totalInitialQuestions > 0
+      ? Math.round((s.correctFirstTry / s.totalInitialQuestions) * 100)
+      : 100;
+
+    $('resultEmoji').textContent = acc >= 85 ? '🎉' : '💪';
+    $('resultHeadline').textContent = s.lesson ? `完成「${s.lesson.title}」！` : `完成「${s.title}」！`;
+    $('resultSubtitle').textContent = '所有練習進度已自動寫入你的艾賓浩斯長期記憶排程';
+    $('resAccVal').textContent = `${acc}%`;
+
+    const uniqueItems = Array.from(new Set(s.learnChars));
+    $('resCountVal').textContent = `${uniqueItems.length} 字`;
+
+    const charsBox = $('resultCharsList');
+    charsBox.innerHTML = uniqueItems.map(it => {
+      const c = window.KanaEngine.getCard(it.id);
+      const lv = c ? c.level : 1;
+      return `<span class="char-chip mastered" lang="ja">${escapeHtml(it.kana)} <small>Lv.${lv}</small></span>`;
+    }).join('');
+  }
+
+  // ==================== TAB 2：互動五十音圖與詳情彈窗 ====================
+  function renderGojuonChart() {
+    const grid = $('gojuonGrid');
+    const rows = window.KanaDB.ROWS[UI.chartSet];
+    const isYoon = UI.chartSet === 'yoon';
+    grid.classList.toggle('cols-3', isYoon);
+    grid.innerHTML = '';
+
+    rows.forEach(([, cells]) => {
+      cells.forEach(cell => {
+        if (!cell) {
+          const empty = document.createElement('div');
+          empty.className = 'kana-cell empty';
+          grid.appendChild(empty);
+          return;
+        }
+        const kana = UI.chartScript === 'h' ? cell[0] : cell[1];
+        const item = window.KanaDB.BY_KANA[kana];
+        if (!item) return;
+
+        const card = window.KanaEngine.getCard(item.id);
+        let stageCls = '';
         if (card) {
-            window.speakJapanese(card.char);
-        }
-    }
-
-    // --- UTILITIES ---
-    function switchScreen(screenId) {
-        // Map quiz sub-screens to the main quiz screen
-        const quizSubScreens = ['quizSetup', 'quizActive', 'quizResults'];
-        const isQuizSub = quizSubScreens.includes(screenId);
-        const mainScreenId = isQuizSub ? 'quiz' : screenId;
-
-        // Hide all main screens
-        document.querySelectorAll('.screen').forEach(s => {
-            s.classList.remove('active');
-            s.classList.add('hidden');
-        });
-
-        // Show the target main screen
-        const screen = DOM[mainScreenId];
-        if (screen) {
-            screen.classList.remove('hidden');
-            screen.classList.add('active');
+          if (card.level <= 2) stageCls = ' stage-1';
+          else if (card.level <= 4) stageCls = ' stage-2';
+          else stageCls = ' stage-3';
         }
 
-        // Handle quiz sub-screens
-        if (isQuizSub) {
-            quizSubScreens.forEach(sub => {
-                if (DOM[sub]) DOM[sub].classList.add('hidden');
-            });
-            if (DOM[screenId]) DOM[screenId].classList.remove('hidden');
-        }
-
-        // Update tab bar active state
-        document.querySelectorAll('.tab-item').forEach(tab => {
-            tab.classList.toggle('active', tab.dataset.screen === mainScreenId);
-        });
-        
-        state.currentScreen = screenId;
-        window.scrollTo(0, 0);
-
-        if (mainScreenId === 'home') {
-            updateHeader();
-            updateHome();
-        } else if (mainScreenId === 'write') {
-            setTimeout(() => {
-                window.DrawingPad.resize();
-            }, 50);
-        }
-    }
-
-    function showToast(message, type = 'info') {
-        DOM.toastText.innerText = message;
-        DOM.toast.className = `toast toast-${type}`;
-        
-        let icon = 'ℹ️';
-        if (type === 'success') icon = '✅';
-        if (type === 'error') icon = '❌';
-        if (type === 'warning') icon = '⚠️';
-        DOM.toastIcon.innerText = icon;
-
-        if (state.toastTimeout) {
-            clearTimeout(state.toastTimeout);
-        }
-
-        setTimeout(() => {
-            DOM.toast.classList.remove('hidden');
-        }, 10);
-
-        state.toastTimeout = setTimeout(() => {
-            DOM.toast.classList.add('hidden');
-        }, 3000);
-    }
-
-    function showModal(contentHtml) {
-        DOM.modalBody.innerHTML = contentHtml;
-        DOM.modal.classList.remove('hidden');
-        // Small delay to allow CSS transition if any
-        setTimeout(() => DOM.modal.classList.add('active'), 10);
-    }
-
-    function hideModal() {
-        DOM.modal.classList.remove('active');
-        setTimeout(() => DOM.modal.classList.add('hidden'), 300);
-    }
-
-    function showSaveIndicator() {
-        DOM.saveIndicator.classList.remove('hidden');
-        DOM.saveIndicator.style.opacity = '1';
-        setTimeout(() => {
-            DOM.saveIndicator.style.opacity = '0';
-            setTimeout(() => DOM.saveIndicator.classList.add('hidden'), 300);
-        }, 1500);
-    }
-
-    function saveData() {
-        window.SRS.save();
-        window.Progress.save();
-        showSaveIndicator();
-    }
-
-    function toggleTheme() {
-        document.body.classList.toggle('dark-theme');
-        // Save preference in localStorage
-        const isDark = document.body.classList.contains('dark-theme');
-        localStorage.setItem('kanaMasterTheme', isDark ? 'dark' : 'light');
-    }
-
-    // --- HOME SCREEN ---
-    function updateHeader() {
-        const levelData = window.Progress.getLevel();
-        const streak = window.Progress.getStreak();
-        
-        DOM.headerStreakCount.innerText = streak;
-        // Optionally update top right level indicator if exists
-    }
-
-    function updateHome() {
-        const stats = window.SRS.getStats();
-        const levelData = window.Progress.getLevel();
-        const dueCards = window.SRS.getDueCards();
-        
-        DOM.homeLevelNum.innerText = levelData.level;
-        DOM.homeXPText.innerText = `${levelData.xpInLevel} / ${levelData.xpMax} XP`;
-        DOM.homeXPBar.querySelector('.progress-fill').style.width = `${levelData.progressToNext}%`;
-        
-        DOM.statDue.innerText = dueCards.length;
-        DOM.statDone.innerText = stats.learned;
-        DOM.statAccuracy.innerText = stats.accuracy > 0 ? `${stats.accuracy}%` : '-';
-        DOM.statLearned.innerText = stats.mastered;
-
-        // Smarter Home Screen updates
-        if (stats.learned === 0) {
-            DOM.welcomeText.innerHTML = `
-                <div class="card" style="text-align: center; margin-bottom: 20px; border: 2px solid var(--primary-color);">
-                    <h2>開始你的五十音之旅！ 🇯🇵</h2>
-                    <p>點擊「學習新假名」開始第一堂課！</p>
-                </div>
-            `;
-        } else {
-            DOM.welcomeText.innerHTML = `
-                <h2>今日目標：${dueCards.length > 0 ? '完成所有復習！' : '學 5 個新假名！'}</h2>
-            `;
-        }
-
-        if (dueCards.length > 0) {
-            DOM.btnStartReview.classList.add('pulse');
-            DOM.btnStartReview.innerHTML = `復習到期假名 <span class="badge" style="background: white; color: var(--primary-color); padding: 2px 6px; border-radius: 10px; margin-left: 5px;">${dueCards.length}</span>`;
-        } else {
-            DOM.btnStartReview.classList.remove('pulse');
-            DOM.btnStartReview.innerHTML = '復習假名 (無到期)';
-        }
-
-        renderMiniGrid();
-    }
-
-    function renderMiniGrid() {
-        const grid = DOM.homeMiniGrid;
-        grid.innerHTML = '';
-        const allCards = window.SRS.getAllCards();
-        
-        // Just show basic vowels for mini grid to save space, or a summary
-        // Let's render a quick summary of rows unlocked
-        window.KanaData.ROWS.forEach(row => {
-            if (row.type === 'hiragana' && window.SRS.isRowUnlocked(row.id)) {
-                const cell = document.createElement('div');
-                cell.className = 'mini-grid-cell';
-                cell.innerText = row.id === 'vowels' ? 'あ' : row.id;
-                grid.appendChild(cell);
-            }
-        });
-    }
-
-    function showOnboardingModal() {
-        const html = `
-            <div style="text-align: center;">
-                <h2>歡迎來到假名大師！🇳🇵</h2>
-                <p>這個網頁會幫你從零開始學會日語五十音。</p>
-                <ul style="text-align: left; margin: 20px 0; list-style: none; padding: 0;">
-                    <li style="margin-bottom: 10px;">🎴 <b>閃卡學習</b>：科學的間隔重複 (SRS) 幫你牢記</li>
-                    <li style="margin-bottom: 10px;">✍️ <b>書寫練習</b>：在畫布上練習正確筆順</li>
-                    <li style="margin-bottom: 10px;">🏆 <b>進度追蹤</b>：賺取 XP，升級並解鎖成就</li>
-                </ul>
-                <button class="btn btn-primary btn-lg" onclick="window.appAPI.startFirstLesson()">開始學習！</button>
-            </div>
+        const btn = document.createElement('button');
+        btn.className = 'kana-cell' + stageCls;
+        btn.innerHTML = `
+          ${item.lore ? `<span class="cell-etym">${escapeHtml(item.lore[0])}</span>` : ''}
+          <span class="cell-k" lang="ja">${escapeHtml(item.kana)}</span>
+          <span class="cell-r">${escapeHtml(item.romaji)}</span>
+          <span class="cell-bar"></span>
         `;
-        showModal(html);
+        btn.addEventListener('click', () => openKanaDetailSheet(item));
+        grid.appendChild(btn);
+      });
+    });
+  }
+
+  function openKanaDetailSheet(item) {
+    window.KanaEngine.speakItem(item, true);
+    const card = window.KanaEngine.getCard(item.id);
+    const lvLabel = !card ? '尚未學習' : `記憶等級 Lv.${card.level} / 6（正確 ${card.ok} 次）`;
+
+    let confHtml = '';
+    if (item.confusables && item.confusables.length) {
+      const pills = item.confusables.map(ck => {
+        const twin = window.KanaDB.BY_KANA[ck];
+        if (!twin) return '';
+        return `<button class="cand-pill" data-twin="${escapeHtml(twin.kana)}" lang="ja">${escapeHtml(twin.kana)} (${escapeHtml(twin.romaji)})</button>`;
+      }).join('');
+      confHtml = `
+        <div class="cue-row warn" style="margin-top:8px; flex-direction:column;">
+          <div><strong>⚠️ 易混淆對比：</strong>${escapeHtml(item.contrastTip || '注意筆畫細節差異')}</div>
+          <div class="verdict-cands">${pills}</div>
+        </div>
+      `;
     }
 
-    // Expose for onboarding button
-    window.appAPI = {
-        startFirstLesson: () => {
-            hideModal();
-            setupLearnSelection();
-        }
-    };
+    const box = $('detailSheetContent');
+    box.innerHTML = `
+      <div style="margin-bottom:10px;">
+        <span class="science-tag">${escapeHtml(lvLabel)}</span>
+        <span class="muted-note" style="margin-left:8px;">對應字：${escapeHtml(item.pair)}</span>
+      </div>
 
-    // --- LEARN SCREEN ---
-    function setupLearnSelection() {
-        // Build row selector
-        DOM.rowSelector.innerHTML = '<option value="">選擇要學習的行...</option>';
-        window.KanaData.ROWS.forEach(row => {
-            // Simplified check: unlock next row if previous is somewhat learned
-            // In a real app, SRS.isRowUnlocked would be used
-            const option = document.createElement('option');
-            option.value = row.id;
-            option.innerText = `${row.type === 'hiragana' ? '平假名' : '片假名'} - ${row.label}行`;
-            DOM.rowSelector.appendChild(option);
-        });
+      <div class="sheet-font-compare">
+        <div class="font-box">
+          <span class="f-label">黑體（手機／招牌）</span>
+          <span class="f-gothic" lang="ja">${escapeHtml(item.kana)}</span>
+        </div>
+        <div class="font-box">
+          <span class="f-label">明體（書籍／菜單）</span>
+          <span class="f-mincho" lang="ja">${escapeHtml(item.kana)}</span>
+        </div>
+      </div>
 
-        DOM.rowSelector.onchange = (e) => {
-            const rowId = e.target.value;
-            if (rowId) {
-                startLearnSession(rowId);
-            }
-        };
+      <button class="audio-anchor-bar" id="btnSheetSpeak">
+        <span class="speaker-circle">🔊</span>
+        <div class="audio-word-text">
+          <strong>${escapeHtml(item.romaji)}</strong> · ${formatWordHighlight(item)}
+        </div>
+        <span class="tap-replay">播放</span>
+      </button>
 
-        switchScreen('learn');
-        
-        // Hide card initially until row selected
-        DOM.learnCard.classList.add('hidden');
-        DOM.srsButtons.classList.add('hidden');
-        DOM.learnCounter.innerText = '';
+      <div class="cognitive-cues">
+        ${item.lore ? `<div class="cue-row"><span class="cue-tag">漢字字源</span><span>源自「<strong>${escapeHtml(item.lore[0])}</strong>」：${escapeHtml(item.lore[1])}</span></div>` : ''}
+        ${item.mnemo ? `<div class="cue-row"><span class="cue-tag">記憶口訣</span><span>${item.mnemo[0]} ${escapeHtml(item.mnemo[1])}</span></div>` : ''}
+      </div>
+      ${confHtml}
+
+      <button class="primary-cta" id="btnSheetGoWrite" style="margin-top:14px;">
+        ✍️ 去手寫道場描寫「${escapeHtml(item.kana)}」
+      </button>
+    `;
+
+    box.querySelector('#btnSheetSpeak').addEventListener('click', () => window.KanaEngine.speakItem(item, true));
+    box.querySelectorAll('[data-twin]').forEach(b => {
+      b.addEventListener('click', () => {
+        const twin = window.KanaDB.BY_KANA[b.dataset.twin];
+        if (twin) openKanaDetailSheet(twin);
+      });
+    });
+    box.querySelector('#btnSheetGoWrite').addEventListener('click', () => {
+      closeDetailSheet();
+      UI.writeList = [item, ...window.KanaDB.ITEMS.filter(x => x.script === item.script && x.set === item.set && x.id !== item.id)];
+      UI.writeIdx = 0;
+      switchTab('write');
+      renderDojoCurrent();
+    });
+
+    $('detailSheetBackdrop').classList.remove('hidden');
+  }
+
+  function closeDetailSheet() {
+    $('detailSheetBackdrop').classList.add('hidden');
+  }
+
+  // ==================== TAB 3：手寫道場與離線筆跡辨識 ====================
+  function loadWritePool(poolType) {
+    UI.writePoolType = poolType;
+    if (poolType === 'current') {
+      const lesson = window.KanaEngine.getNextRecommendedLesson();
+      UI.writeList = lesson.chars.slice();
+    } else if (poolType === 'h-base') {
+      UI.writeList = window.KanaDB.ITEMS.filter(it => it.script === 'h' && it.set === 'base');
+    } else if (poolType === 'k-base') {
+      UI.writeList = window.KanaDB.ITEMS.filter(it => it.script === 'k' && it.set === 'base');
+    } else if (poolType === 'confuse') {
+      const classic = ['あ','お','き','さ','ち','は','ほ','ま','る','ろ','ぬ','め','シ','ツ','ソ','ン','ク','ワ','タ'];
+      UI.writeList = classic.map(k => window.KanaDB.BY_KANA[k]).filter(Boolean);
+    }
+    UI.writeIdx = 0;
+    renderDojoCurrent();
+  }
+
+  function setWriteBlindMode(isBlind) {
+    UI.writeBlindMode = isBlind;
+    $('btnModeTrace').classList.toggle('active', !isBlind);
+    $('btnModeBlind').classList.toggle('active', isBlind);
+    dojoPad.setGhost(!isBlind);
+    $('dojoVerdict').classList.add('hidden');
+  }
+
+  function renderDojoCurrent() {
+    if (!UI.writeList.length) return;
+    const item = UI.writeList[UI.writeIdx];
+    $('writeRomaji').textContent = item.romaji;
+    $('writeWordInfo').innerHTML = item.word && item.word[0]
+      ? `${item.word[3] || ''} ${escapeHtml(item.word[2])} (${escapeHtml(item.word[1])})`
+      : (item.script === 'h' ? '平假名' : '片假名');
+    $('dojoEtymHint').textContent = item.lore ? `漢字來源：${item.lore[0]}` : `對應：${item.pair}`;
+    $('writePosText').textContent = `${UI.writeIdx + 1} / ${UI.writeList.length}`;
+    $('dojoVerdict').classList.add('hidden');
+
+    dojoPad.setTarget(item, !UI.writeBlindMode);
+  }
+
+  function evaluateDojoWriting() {
+    const item = UI.writeList[UI.writeIdx];
+    if (!item) return;
+
+    const res = window.KanaPad.recognize(dojoPad, item);
+    const box = $('dojoVerdict');
+    box.classList.remove('hidden', 'ok', 'retry');
+
+    if (res.empty) {
+      showToast('請先在格線中寫出假名喔！');
+      return;
     }
 
-    function startLearnSession(rowId) {
-        const newCards = window.SRS.getNewCards(rowId);
-        if (newCards.length === 0) {
-            showToast('這一行沒有新卡片了！', 'warning');
-            return;
-        }
+    const strokeNote = (res.expectedStrokes && res.strokeCount !== res.expectedStrokes)
+      ? `（提醒：標準筆順為 ${res.expectedStrokes} 畫，你寫了 ${res.strokeCount} 畫）`
+      : `（筆畫數 ${res.strokeCount} 畫正確！）`;
 
-        state.learnMode.cards = newCards;
-        state.learnMode.currentIndex = 0;
-        state.learnMode.isReview = false;
-        state.learnMode.currentRow = rowId;
+    if (res.passed) {
+      window.KanaEngine.recordAnswer(item.id, true);
+      window.KanaEngine.playTone('correct');
+      window.KanaEngine.speakItem(item, true);
+      dojoPad.setGhost(true);
+      box.classList.add('ok');
+      box.innerHTML = `
+        <strong>✨ 太準了！字形契合度 ${res.scorePct}%</strong> ${escapeHtml(strokeNote)}
+        <div style="margin-top:6px;">
+          <button class="small-action-btn" id="btnVerdictNext">練習下一個字 →</button>
+        </div>
+      `;
+      box.querySelector('#btnVerdictNext').addEventListener('click', () => {
+        UI.writeIdx = (UI.writeIdx + 1) % UI.writeList.length;
+        renderDojoCurrent();
+      });
+    } else {
+      window.KanaEngine.playTone('wrong');
+      dojoPad.setGhost(true);
+      box.classList.add('retry');
 
-        DOM.learnCard.classList.remove('hidden');
-        renderLearnCard();
+      const topGuess = res.best && res.best.item.id !== item.id
+        ? `系統看你的筆跡比較像「<strong lang="ja">${escapeHtml(res.best.item.kana)} (${escapeHtml(res.best.item.romaji)})</strong>」。`
+        : '結構位置稍微偏了一點點。';
+      const tip = item.contrastTip ? `<div style="margin-top:4px;">💡 ${escapeHtml(item.contrastTip)}</div>` : '';
+
+      const candsHtml = res.top3.map(r =>
+        `<span class="cand-pill" lang="ja">${escapeHtml(r.item.kana)} ${Math.round(Math.min(99, r.score * 122))}%</span>`
+      ).join('');
+
+      box.innerHTML = `
+        <div>🤔 ${topGuess} ${escapeHtml(strokeNote)}</div>
+        ${tip}
+        <div class="verdict-cands">${candsHtml}</div>
+        <div style="margin-top:8px; display:flex; gap:8px;">
+          <button class="tiny-btn" id="btnRetryWrite">擦掉重寫一次</button>
+          <button class="tiny-btn" id="btnForcePass">我確定寫對了 ✓</button>
+        </div>
+      `;
+      box.querySelector('#btnRetryWrite').addEventListener('click', () => {
+        dojoPad.clear();
+        dojoPad.setGhost(!UI.writeBlindMode);
+        box.classList.add('hidden');
+      });
+      box.querySelector('#btnForcePass').addEventListener('click', () => {
+        window.KanaEngine.recordAnswer(item.id, true);
+        UI.writeIdx = (UI.writeIdx + 1) % UI.writeList.length;
+        renderDojoCurrent();
+        showToast('已記錄通過！');
+      });
     }
+  }
 
-    function startReviewSession() {
-        const dueCards = window.SRS.getDueCards();
-        if (dueCards.length === 0) {
-            showToast('目前沒有需要復習的卡片！去學習新假名吧。', 'success');
-            return;
-        }
+  // ==================== TAB 4：記憶科學儀表板 ====================
+  function renderStatsView() {
+    const stats = window.KanaEngine.getOverviewStats();
+    $('statLearnedTotal').textContent = stats.learnedCount;
+    $('statAccTotal').textContent = stats.accuracy !== null ? `${stats.accuracy}%` : '--%';
+    $('statReviewsTotal').textContent = stats.totalReviews;
 
-        // Shuffle due cards
-        dueCards.sort(() => Math.random() - 0.5);
+    const maxBase = Math.max(1, stats.learnedCount);
+    const stages = [
+      { label: '初識 (10分)', count: stats.stageNew, cls: '' },
+      { label: '短期 (1天)', count: stats.stageShort, cls: 'indigo' },
+      { label: '鞏固 (3-7天)', count: stats.stageMid, cls: 'indigo' },
+      { label: '長期 (21天+)', count: stats.stageLong, cls: 'emerald' }
+    ];
 
-        state.learnMode.cards = dueCards;
-        state.learnMode.currentIndex = 0;
-        state.learnMode.isReview = true;
+    $('memoryStageBars').innerHTML = stages.map(st => {
+      const w = stats.learnedCount > 0 ? Math.round((st.count / maxBase) * 100) : 0;
+      return `
+        <div class="mem-row">
+          <span>${st.label}</span>
+          <div class="bar-track"><div class="bar-fill ${st.cls}" style="width:${w}%"></div></div>
+          <strong>${st.count} 字</strong>
+        </div>
+      `;
+    }).join('');
 
-        switchScreen('learn');
-        DOM.rowSelector.style.display = 'none';
-        DOM.learnCard.classList.remove('hidden');
-        renderLearnCard();
-    }
-
-    function renderLearnCard() {
-        if (state.learnMode.currentIndex >= state.learnMode.cards.length) {
-            finishLearnSession();
-            return;
-        }
-
-        const card = state.learnMode.cards[state.learnMode.currentIndex];
-        
-        // Reset state
-        state.learnMode.isFlipped = false;
-        DOM.learnCard.classList.remove('flipped');
-        DOM.srsButtons.classList.add('hidden');
-        
-        // Populate Front
-        DOM.learnKana.innerText = card.char;
-        
-        // Populate Back
-        DOM.learnKanaBack.innerText = card.char;
-        DOM.learnRomajiBack.innerText = card.romaji;
-        DOM.learnMnemonic.querySelector('.mnemonic-text').innerText = card.mnemonic || '無口訣';
-        DOM.learnStrokeCount.innerText = `筆畫數: ${card.strokeCount}`;
-        
-        // Update Counter
-        DOM.learnCounter.innerText = `${state.learnMode.currentIndex + 1} / ${state.learnMode.cards.length}`;
-
-        // Guided learning features
-        DOM.learnCard.classList.add('pulse'); // Pulse to encourage tapping
-        
-        // Auto-speak on show
-        speakCurrentKana();
-    }
-
-    function flipLearnCard() {
-        if (state.learnMode.isFlipped) return;
-        
-        state.learnMode.isFlipped = true;
-        DOM.learnCard.classList.remove('pulse');
-        DOM.learnCard.classList.add('flipped');
-        DOM.srsButtons.classList.remove('hidden');
-
-        // Show tooltip if it's the very first time
-        const stats = window.SRS.getStats();
-        if (stats.learned < 5) {
-            showToast('記住這個字的樣子，然後按下方按鈕評估你記得多好', 'info');
-        }
-    }
-
-    function submitSRS(quality) {
-        if (!state.learnMode.isFlipped) return;
-
-        const card = state.learnMode.cards[state.learnMode.currentIndex];
-        
-        // Record review in SRS
-        window.SRS.reviewCard(card.id, quality);
-        
-        // Record in Progress (this internally adds XP)
-        const isCorrect = quality >= 3;
-        window.Progress.recordReview(isCorrect);
-        
-        // Show XP Popup
-        showXPPopup(isCorrect ? 10 : 2);
-        
-        saveData();
-
-        // Auto-advance with delay
-        setTimeout(() => {
-            nextLearnCard();
-        }, 500);
-    }
-
-    function nextLearnCard() {
-        state.learnMode.currentIndex++;
-        renderLearnCard();
-    }
-
-    function prevLearnCard() {
-        if (state.learnMode.currentIndex > 0) {
-            state.learnMode.currentIndex--;
-            renderLearnCard();
-        }
-    }
-
-    function finishLearnSession() {
-        DOM.learnCard.classList.add('hidden');
-        DOM.srsButtons.classList.add('hidden');
-        
-        triggerConfetti();
-        
-        const html = `
-            <div style="text-align: center;">
-                <h2>太棒了！🎉</h2>
-                <p>你已經完成了這組卡片的學習/復習。</p>
-                <div style="margin: 20px 0;">
-                    <p>繼續保持！</p>
-                </div>
-                <button class="btn btn-primary" onclick="document.getElementById('modalClose').click(); document.getElementById('btnStartQuizGo').click();">去測驗看看</button>
-                <button class="btn btn-outline" onclick="document.getElementById('modalClose').click(); document.getElementById('btnStartWrite').click();">練習寫字</button>
-            </div>
+    const weakBox = $('weakListContainer');
+    if (stats.weakItems.length === 0) {
+      weakBox.innerHTML = `<span class="muted-note">完成課程測驗後，系統會自動分析你最容易認錯的假名並顯示在這裡。</span>`;
+    } else {
+      weakBox.innerHTML = '';
+      stats.weakItems.slice(0, 8).forEach(({ item, card }) => {
+        const btn = document.createElement('button');
+        btn.className = 'weak-chip';
+        btn.innerHTML = `
+          <span class="wk" lang="ja">${escapeHtml(item.kana)}</span>
+          <span class="wr">${escapeHtml(item.romaji)} · Lv.${card.level}</span>
         `;
-        showModal(html);
-        updateHeader();
+        btn.addEventListener('click', () => openKanaDetailSheet(item));
+        weakBox.appendChild(btn);
+      });
     }
-
-    // --- QUIZ SCREEN ---
-    function setupQuiz() {
-        switchScreen('quizSetup');
-    }
-
-    function startQuizMode() {
-        const mode = document.getElementById('quizModeSelect').value;
-        const scope = document.getElementById('quizScopeSelect').value;
-        const count = parseInt(document.getElementById('quizCountSelect').value, 10);
-
-        state.quizMode.audioOnly = (mode === 'audio');
-
-        const success = window.Quiz.start(mode, scope, count);
-        if (!success) {
-            showToast('沒有足夠的卡片來進行測驗，請先學習更多假名！', 'error');
-            return;
-        }
-
-        switchScreen('quizActive');
-        renderQuizQuestion();
-    }
-
-    function renderQuizQuestion() {
-        const q = window.Quiz.getCurrentQuestion();
-        if (!q) {
-            finishQuiz();
-            return;
-        }
-
-        const stateQuiz = window.Quiz.getState();
-        DOM.quizCounter.innerText = `題目 ${stateQuiz.currentIndex + 1} / ${stateQuiz.total}`;
-        DOM.quizScore.innerText = `分數: ${stateQuiz.score}`;
-        DOM.quizProgressBar.querySelector('.progress-fill').style.width = `${((stateQuiz.currentIndex) / stateQuiz.total) * 100}%`;
-
-        // Reset UI
-        DOM.quizFeedback.classList.add('hidden');
-        DOM.btnQuizNext.classList.add('hidden');
-        DOM.quizOptions.innerHTML = '';
-        DOM.quizOptions.className = 'quiz-options'; // reset layout classes if any
-
-        if (state.quizMode.audioOnly) {
-            DOM.quizKana.innerText = '🔊';
-            DOM.quizKana.classList.add('bounce');
-            DOM.btnQuizSpeak.style.display = 'block';
-            speakJapanese(q.kana);
-        } else {
-            DOM.quizKana.innerText = q.prompt;
-            DOM.quizKana.classList.remove('bounce');
-            // Disable speak button if not testing audio, but keep it visible if they want to hear
-            DOM.btnQuizSpeak.style.display = 'block';
-            DOM.btnQuizSpeak.onclick = () => speakJapanese(q.kana);
-        }
-
-        q.options.forEach(opt => {
-            const btn = document.createElement('button');
-            btn.className = 'quiz-option';
-            if (q.type === 'romaji_to_kana' || q.type === 'audio_to_kana') {
-                btn.classList.add('kana-option');
-            }
-            btn.innerText = opt;
-            btn.onclick = () => handleQuizAnswer(opt, btn, q);
-            DOM.quizOptions.appendChild(btn);
-        });
-    }
-
-    function handleQuizAnswer(selected, btnElement, qInfo) {
-        if (DOM.quizOptions.querySelector('.disabled')) return; // Already answered
-
-        const result = window.Quiz.submitAnswer(selected);
-        
-        // Disable all options
-        Array.from(DOM.quizOptions.children).forEach(child => {
-            child.classList.add('disabled');
-            if (child.innerText === result.correctAnswer) {
-                child.classList.add('correct');
-            }
-        });
-
-        if (result.isCorrect) {
-            btnElement.classList.add('correct');
-            DOM.feedbackIcon.innerText = '✅ 正確！';
-            DOM.feedbackIcon.style.color = 'var(--success-color)';
-            showXPPopup(5); // Small XP for quiz correct
-        } else {
-            btnElement.classList.add('wrong');
-            DOM.feedbackIcon.innerText = '❌ 錯誤';
-            DOM.feedbackIcon.style.color = 'var(--error-color)';
-            DOM.quizKana.classList.add('shake');
-            setTimeout(() => DOM.quizKana.classList.remove('shake'), 500);
-        }
-
-        DOM.feedbackAnswer.innerText = `正確答案是: ${result.correctAnswer}`;
-        DOM.feedbackMnemonic.innerText = ``; // Could add mnemonic here if available
-
-        DOM.quizFeedback.classList.remove('hidden');
-        DOM.btnQuizNext.classList.remove('hidden');
-        DOM.btnQuizNext.focus();
-        
-        window.Progress.recordReview(result.isCorrect);
-        saveData();
-    }
-
-    function nextQuizQuestion() {
-        window.Quiz.next();
-        renderQuizQuestion();
-    }
-
-    function finishQuiz() {
-        const stateQuiz = window.Quiz.getState();
-        window.Quiz.finish(); // Resets quiz state internally
-
-        switchScreen('quizResults');
-        DOM.quizProgressBar.querySelector('.progress-fill').style.width = '100%';
-
-        const accuracy = Math.round((stateQuiz.score / stateQuiz.total) * 100);
-        
-        DOM.resultCorrect.innerText = stateQuiz.score;
-        DOM.resultWrong.innerText = stateQuiz.total - stateQuiz.score;
-        DOM.resultAccuracy.innerText = `${accuracy}%`;
-        
-        let xpGained = 0;
-        if (accuracy === 100) xpGained = 20; // Perfect bonus
-        else if (accuracy >= 80) xpGained = 10; // Great bonus
-        DOM.resultXP.innerText = xpGained > 0 ? `+${xpGained} XP 🎁` : '';
-        
-        // Only add bonus XP (per-question XP already added via recordReview)
-        if (xpGained > 0) {
-            window.Progress.addXP(xpGained);
-        }
-        saveData();
-
-        if (accuracy >= 80) {
-            DOM.resultsIcon.innerText = '🏆';
-            DOM.resultsTitle.innerText = '測驗完成！太厲害了！';
-            triggerConfetti();
-        } else {
-            DOM.resultsIcon.innerText = '💪';
-            DOM.resultsTitle.innerText = '測驗完成！繼續加油！';
-        }
-
-        // Render mistakes
-        DOM.mistakesList.innerHTML = '';
-        if (stateQuiz.mistakes && stateQuiz.mistakes.length > 0) {
-            DOM.resultsMistakes.classList.remove('hidden');
-            stateQuiz.mistakes.forEach(m => {
-                const li = document.createElement('li');
-                li.innerText = `題目: ${m.prompt} | 你的答案: ${m.given} | 正確: ${m.correct}`;
-                DOM.mistakesList.appendChild(li);
-            });
-        } else {
-            DOM.resultsMistakes.classList.add('hidden');
-        }
-        
-        updateHeader();
-    }
-
-    // --- WRITE SCREEN ---
-    function setupWriteSelection() {
-        DOM.writeRowSelector.innerHTML = '<option value="">選擇要練習的行...</option>';
-        window.KanaData.ROWS.forEach(row => {
-            const option = document.createElement('option');
-            option.value = row.id;
-            option.innerText = `${row.type === 'hiragana' ? '平假名' : '片假名'} - ${row.label}行`;
-            DOM.writeRowSelector.appendChild(option);
-        });
-
-        DOM.writeRowSelector.onchange = (e) => {
-            const rowId = e.target.value;
-            if (rowId) {
-                startWriteSession(rowId);
-            }
-        };
-
-        switchScreen('write');
-        
-        DOM.drawCanvas.parentElement.style.opacity = '0.5';
-        DOM.writeRomaji.innerText = '請選擇行';
-        DOM.writeRefChar.innerText = '';
-    }
-
-    function startWriteSession(rowId) {
-        // Just get all cards for this row from KanaData
-        const row = window.KanaData.ROWS.find(r => r.id === rowId);
-        const typeData = row.type === 'hiragana' ? window.KanaData.HIRAGANA : window.KanaData.KATAKANA;
-        
-        state.writeMode.cards = typeData.filter(k => k.row === rowId);
-        state.writeMode.currentIndex = 0;
-
-        DOM.drawCanvas.parentElement.style.opacity = '1';
-        
-        // Init canvas if not done
-        if (!window.DrawingPad.ctx) {
-            window.DrawingPad.init(DOM.drawCanvas);
-        }
-
-        renderWriteCard();
-    }
-
-    function renderWriteCard() {
-        const card = state.writeMode.cards[state.writeMode.currentIndex];
-        if (!card) return;
-
-        window.DrawingPad.clear();
-        DOM.writeRomaji.innerText = card.romaji;
-        DOM.writeRefChar.innerText = ''; // Hide hint initially
-        DOM.writeRefChar.classList.add('hidden');
-        
-        DOM.expectedStrokes.innerText = card.strokeCount;
-        DOM.currentStrokes.innerText = '0';
-
-        DOM.writeCounter.innerText = `${state.writeMode.currentIndex + 1} / ${state.writeMode.cards.length}`;
-
-        // Add a "Skip/I wrote it" button dynamically if not exists
-        if (!document.getElementById('btnSkipWrite')) {
-            const skipBtn = document.createElement('button');
-            skipBtn.id = 'btnSkipWrite';
-            skipBtn.className = 'btn btn-outline';
-            skipBtn.innerText = '跳過 / 已練習';
-            skipBtn.onclick = () => {
-                showToast('已跳過', 'info');
-                nextWriteCard();
-            };
-            DOM.btnCheckWrite.parentNode.insertBefore(skipBtn, DOM.btnCheckWrite.nextSibling);
-        }
-
-        // Setup stroke counter update loop
-        if (state.writeInterval) clearInterval(state.writeInterval);
-        state.writeInterval = setInterval(() => {
-            if (state.currentScreen === 'write') {
-                DOM.currentStrokes.innerText = window.DrawingPad.getStrokeCount();
-            }
-        }, 500);
-    }
-
-    function showWriteHint() {
-        const card = state.writeMode.cards[state.writeMode.currentIndex];
-        DOM.writeRefChar.innerText = card.char;
-        DOM.writeRefChar.classList.remove('hidden');
-        window.DrawingPad.showGuide(card.char);
-    }
-
-    function checkWriteCanvas() {
-        const card = state.writeMode.cards[state.writeMode.currentIndex];
-        const strokes = window.DrawingPad.getStrokeCount();
-        
-        if (strokes === 0) {
-            showToast('請先在畫布上寫字！', 'warning');
-            return;
-        }
-
-        const strokeOk = window.DrawingPad.validateStrokeCount(card.strokeCount);
-        const score = window.DrawingPad.getScore(card.strokeCount);
-
-        let msg = '';
-        if (score >= 80) {
-            msg = '寫得很好！✨';
-            showXPPopup(15);
-            window.Progress.addXP(15);
-            saveData();
-            showToast(msg, 'success');
-            setTimeout(nextWriteCard, 1000);
-        } else if (strokeOk) {
-            msg = '筆畫數正確，但形狀可以再更好一點。';
-            showToast(msg, 'info');
-        } else {
-            msg = `筆畫數不對喔！預期 ${card.strokeCount} 畫，你寫了 ${strokes} 畫。`;
-            showToast(msg, 'error');
-            DOM.drawCanvas.classList.add('shake');
-            setTimeout(() => DOM.drawCanvas.classList.remove('shake'), 500);
-        }
-    }
-
-    function nextWriteCard() {
-        if (state.writeMode.currentIndex < state.writeMode.cards.length - 1) {
-            state.writeMode.currentIndex++;
-            renderWriteCard();
-        } else {
-            showToast('這行練習完畢！', 'success');
-            triggerConfetti();
-        }
-    }
-
-    function prevWriteCard() {
-        if (state.writeMode.currentIndex > 0) {
-            state.writeMode.currentIndex--;
-            renderWriteCard();
-        }
-    }
-
-    // --- PROGRESS SCREEN ---
-    function updateProgressScreen() {
-        const levelData = window.Progress.getLevel();
-        const stats = window.SRS.getStats();
-        
-        DOM.progressLevelNum.innerText = levelData.level;
-        // Simple title logic
-        let title = '見習生';
-        if (levelData.level > 5) title = '初學者';
-        if (levelData.level > 10) title = '熟練者';
-        if (levelData.level > 20) title = '假名大師';
-        DOM.progressLevelTitle.innerText = title;
-        
-        DOM.progressXPText.innerText = `${levelData.xpInLevel} / ${levelData.xpMax} XP`;
-        DOM.progressXPBar.querySelector('.progress-fill').style.width = `${levelData.progressToNext}%`;
-        
-        DOM.progressStreak.innerText = `${window.Progress.getStreak()} 天`;
-        DOM.progressTotalReviews.innerText = stats.totalCards; // Or total reviews if tracked
-        DOM.progressAccuracy.innerText = stats.accuracy > 0 ? `${stats.accuracy}%` : '-';
-        
-        renderMasteryGrid();
-        renderAchievements();
-    }
-
-    function renderMasteryGrid() {
-        const grid = DOM.masteryGrid;
-        grid.innerHTML = '';
-        const allCards = window.SRS.getAllCards();
-        
-        // Hiragana
-        const hTitle = document.createElement('h3');
-        hTitle.innerText = '平假名熟練度';
-        grid.appendChild(hTitle);
-        
-        const hContainer = document.createElement('div');
-        hContainer.className = 'mini-grid';
-        window.KanaData.HIRAGANA.forEach(k => {
-            const cell = document.createElement('div');
-            cell.className = 'mini-grid-cell';
-            cell.innerText = k.char;
-            
-            const card = allCards[k.char];
-            if (card) {
-                cell.classList.add(`mastery-${card.mastery}`);
-            } else {
-                cell.classList.add('mastery-0');
-                cell.style.opacity = '0.3';
-            }
-            hContainer.appendChild(cell);
-        });
-        grid.appendChild(hContainer);
-    }
-
-    function renderAchievements() {
-        const grid = DOM.achievementsGrid;
-        grid.innerHTML = '';
-        const achievements = window.Progress.getAllAchievements();
-        
-        achievements.forEach(a => {
-            const el = document.createElement('div');
-            el.className = 'card';
-            el.style.display = 'flex';
-            el.style.alignItems = 'center';
-            el.style.gap = '15px';
-            el.style.marginBottom = '10px';
-            el.style.opacity = a.unlocked ? '1' : '0.5';
-            
-            el.innerHTML = `
-                <div style="font-size: 2rem;">${a.icon}</div>
-                <div>
-                    <h4 style="margin:0 0 5px 0;">${a.title}</h4>
-                    <p style="margin:0; font-size: 0.9rem; color: var(--text-muted);">${a.desc}</p>
-                </div>
-            `;
-            grid.appendChild(el);
-        });
-    }
-
-    // --- ANIMATIONS & EFFECTS ---
-    function triggerConfetti() {
-        DOM.confettiContainer.innerHTML = '';
-        for (let i = 0; i < 50; i++) {
-            const particle = document.createElement('div');
-            particle.className = 'confetti-particle';
-            particle.style.left = `${Math.random() * 100}vw`;
-            particle.style.animationDuration = `${Math.random() * 2 + 1}s`;
-            particle.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
-            DOM.confettiContainer.appendChild(particle);
-        }
-        setTimeout(() => {
-            DOM.confettiContainer.innerHTML = '';
-        }, 3000);
-    }
-
-    function showXPPopup(amount) {
-        const popup = document.createElement('div');
-        popup.innerText = `+${amount} XP ✨`;
-        popup.style.position = 'fixed';
-        popup.style.top = '50%';
-        popup.style.left = '50%';
-        popup.style.transform = 'translate(-50%, -50%)';
-        popup.style.color = 'var(--accent-color)';
-        popup.style.fontWeight = 'bold';
-        popup.style.fontSize = '1.5rem';
-        popup.style.zIndex = '9999';
-        popup.style.pointerEvents = 'none';
-        popup.style.textShadow = '0 2px 4px rgba(0,0,0,0.2)';
-        popup.style.transition = 'all 1s ease-out';
-        
-        document.body.appendChild(popup);
-        
-        // Trigger reflow
-        void popup.offsetWidth;
-        
-        popup.style.transform = 'translate(-50%, -150%)';
-        popup.style.opacity = '0';
-        
-        setTimeout(() => popup.remove(), 1000);
-    }
-
-    function handleGlobalKeydown(e) {
-        // Only if no modal is open
-        if (!DOM.modal.classList.contains('hidden')) return;
-
-        if (state.currentScreen === 'learn' && state.learnMode.isFlipped) {
-            // Number keys 1-4 for SRS
-            if (['1','2','3','4'].includes(e.key)) {
-                let quality = 0;
-                switch(e.key) {
-                    case '1': quality = 0; break; // Again
-                    case '2': quality = 2; break; // Hard
-                    case '3': quality = 3; break; // Good
-                    case '4': quality = 4; break; // Easy
-                }
-                submitSRS(quality);
-            }
-        } else if (state.currentScreen === 'learn' && !state.learnMode.isFlipped) {
-            if (e.key === ' ' || e.key === 'Enter') {
-                e.preventDefault();
-                flipLearnCard();
-            }
-        }
-    }
-
+  }
 })();
